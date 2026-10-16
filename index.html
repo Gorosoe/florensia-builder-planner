@@ -178,6 +178,7 @@ footer{font-size:12px;color:var(--muted);max-width:80ch}
       <div class="ctl"><span class="label">Job (niv. 40)</span><select id="job"></select></div>
       <div class="ctl"><span class="label">Niv. terre</span><input id="lvLand" type="number" min="1" max="120" value="60"></div>
       <div class="ctl"><span class="label">Niv. mer</span><input id="lvSea" type="number" min="1" max="99" value="40"></div>
+      <div class="ctl"><span class="label">Langue</span><select id="lang" aria-label="Langue / Language"><option value="fr">Français</option><option value="en">English</option></select></div>
       <div class="ctl"><span class="label">Sexe</span><select id="gender"><option value="Male">Homme</option><option value="Female">Femme</option></select></div>
     </div>
   </div>
@@ -224,9 +225,16 @@ footer{font-size:12px;color:var(--muted);max-width:80ch}
   </section>
 
   <footer>
+    <div data-lang="fr">
     <p><b>Outil de fan non officiel.</b> Florensia, ses noms, données et icônes appartiennent à leurs propriétaires respectifs. Ce site n'est pas lié à l'éditeur du jeu.</p>
     <p>Formules de stats, arbres de compétences et extraction des données basés sur <a href="https://github.com/HealYouDown/flandria" target="_blank" rel="noopener">Flandria</a> par HealYouDown, sous licence <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0</a>. Ce builder est distribué sous la même licence ; son code source est cette page elle-même. Données du patch du 16/10/2026.</p>
     <p>Calcul : les bonus en % s'appliquent à la base du personnage (classe, niveau, stats), plus les dégâts de base de l'arme pour l'attaque ; les bonus fixes (amélioration, essences, sceaux, sets, passifs, buffs) s'ajoutent ensuite. La défense en % s'applique après tous les bonus. L'attaque de base Mercenary est calée sur des fiches in-game de niveau 112 ; les autres classes peuvent être légèrement décalées.</p>
+    </div>
+    <div data-lang="en" hidden>
+    <p><b>Unofficial fan tool.</b> Florensia, its names, data and icons belong to their respective owners. This site is not affiliated with the game's publisher.</p>
+    <p>Stat formulas, skill trees and data extraction based on <a href="https://github.com/HealYouDown/flandria" target="_blank" rel="noopener">Flandria</a> by HealYouDown, licensed under <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0</a>. This builder is distributed under the same license; its source code is this page itself. Data from the 2026-10-16 patch.</p>
+    <p>Calculation: % bonuses apply to the character base (class, level, stats), plus the weapon's base damage for attack; flat bonuses (upgrade, essences, seals, sets, passives, buffs) are added afterwards. Defense % applies after all bonuses. The Mercenary base attack is calibrated on level 112 in-game sheets; other classes may be slightly off.</p>
+    </div>
   </footer>
 </main>
 
@@ -257,24 +265,52 @@ footer{font-size:12px;color:var(--muted);max-width:80ch}
 <div class="toast" id="toast" hidden></div>
 
 <script>
+// UI language: saved choice, else the browser's language (French for fr-*, English otherwise). Game names stay in English, as in game.
+const LANG=(()=>{const h=(location.hash.match(/lang=(fr|en)/)||[])[1];if(h)return h;try{const l=localStorage.getItem("fl-lang");if(l==="fr"||l==="en")return l}catch(e){}return /^fr/i.test(navigator.language||"")?"fr":"en"})();
+const ln=(fr,en)=>LANG==="en"?en:fr;
+// static page text, matched on the whole trimmed text or attribute
+const UI_EN={"Stats, équipement et arbre de skills":"Stats, equipment and skill tree","Classe":"Class","Langue":"Language","Job (niv. 40)":"Job (lvl 40)","Niv. terre":"Land lvl","Niv. mer":"Sea lvl","Sexe":"Gender","Homme":"Male","Femme":"Female",
+  "Statistiques":"Stats","Remettre tous les points répartis à 0":"Reset all allocated points to 0","Remettre à 0":"Reset",
+  "Clic : ±1 · Maj+clic : ±10. Points : 3 par niveau terre + 1 par niveau mer au-delà du 1.":"Click: ±1 · Shift+click: ±10. Points: 3 per land level + 1 per sea level above 1.",
+  "Buffs de groupe : reçus de n'importe quelle classe. Buffs personnels : seulement ceux de ta classe et de ton job. Bonus fixes, comme en jeu.":"Party buffs: received from any class. Personal buffs: only those of your own class and job. Flat bonuses, as in game.",
+  "Équipement":"Equipment","Choisir un emplacement pour ouvrir la liste · ◆ slot core (core ou méta), + slot méta":"Pick a slot to open the list · ◆ core slot (core or meta), + meta slot",
+  "Arbre de skills":"Skill tree","Réinitialiser l'arbre":"Reset tree",
+  "Clic : +1 · clic droit : −1 · double-clic : niveau max possible. Les skills grisés sont verrouillés (niveau, prérequis ou job).":"Click: +1 · right-click: −1 · double-click: max possible level. Greyed-out skills are locked (level, prerequisite or job).",
+  "Mes builds":"My builds","Enregistrés dans ce navigateur":"Saved in this browser","Nom du build (ex. Sniper PvE 95)":"Build name (e.g. Sniper PvE 95)","Enregistrer":"Save","Nouveau build":"New build",
+  "Copier le code du build":"Copy build code","ou coller un code pour l'importer":"or paste a code to import it","Code de build":"Build code","Importer le code":"Import code",
+  "Fermer":"Close","Rechercher un objet ou un bonus (ex. HP, Ancient)":"Search an item or a bonus (e.g. HP, Ancient)","Type d'arme":"Weapon type","Utilisable par ce personnage":"Usable by this character","Avec bonus seulement":"With bonus only",
+  "Tri":"Sort","Niveau décroissant":"Level, high to low","Niveau croissant":"Level, low to high","Nom":"Name","Retirer l'objet":"Remove item",
+  "Sceaux de l'objet : 0 à 5. Jamais sur les bijoux cash, les boucliers ni les objets craftables (sauf objets Realm niv. 101 à 105). Options et plages tirées des tables du jeu selon le niveau de l'objet.":"Item seals: 0 to 5. Never on cash-shop jewelry, shields or craftable items (except Realm items lvl 101 to 105). Options and ranges come from the game tables, based on the item level.",
+  "Valeur":"Value","Ajouter":"Add"};
+function translatePage(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll("[data-lang]").forEach(el=>el.hidden=el.dataset.lang!==LANG);
+  $("lang").value=LANG;
+  if(LANG!=="en")return;
+  const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+  while((n=w.nextNode())){if(n.parentElement.closest("script,style"))continue;const k=n.nodeValue.trim();if(UI_EN[k])n.nodeValue=n.nodeValue.replace(k,UI_EN[k])}
+  document.querySelectorAll("[placeholder],[title],[aria-label]").forEach(el=>{for(const a of ["placeholder","title","aria-label"]){const v=el.getAttribute(a);if(v&&UI_EN[v])el.setAttribute(a,UI_EN[v])}});
+}
 const CLASSES={
   explorer:{name:"Explorer",jobs:["Excavator","Sniper"],base:{str:19,dex:18,con:16,int:13,wis:10,vol:17,luc:10}},
   mercenary:{name:"Mercenary",jobs:["Gladiator","Guardian Swordsman"],base:{str:21,dex:15,con:22,int:8,wis:10,vol:17,luc:10}},
   noble:{name:"Noble",jobs:["Court Magician","Magic Knight"],base:{str:11,dex:16,con:12,int:21,wis:19,vol:14,luc:10}},
   saint:{name:"Saint",jobs:["Priest","Shaman"],base:{str:14,dex:14,con:14,int:16,wis:19,vol:16,luc:10}},
 };
-const STATS=[["str","STR","Force"],["dex","DEX","Dextérité"],["con","CON","Constitution"],["int","INT","Intelligence"],["wis","WIS","Sagesse"],["vol","VOL","Volonté"],["luc","LUC","Chance"]];
+const STATS=[["str","STR",ln("Force","Strength")],["dex","DEX",ln("Dextérité","Dexterity")],["con","CON","Constitution"],["int","INT","Intelligence"],["wis","WIS",ln("Sagesse","Wisdom")],["vol","VOL",ln("Volonté","Will")],["luc","LUC",ln("Chance","Luck")]];
 const STAT_CODE={155:"con",156:"str",157:"int",158:"dex",159:"wis",160:"vol",161:"luc"};
-const EFFECT={0:"HP max",1:"MP max",2:"Régén. HP",3:"Régén. MP",4:"Esquive",5:"Vitesse de déplacement",6:"Att. mêlée max",7:"Att. mêlée min",8:"Att. distance max",9:"Att. distance min",10:"Att. magique max",11:"Att. magique min",12:"Déf. physique",13:"Déf. magique",14:"Préc. mêlée",15:"Préc. distance",16:"Préc. magique",17:"Vit. att. mêlée",18:"Vit. att. distance",19:"Vit. att. magique",20:"Portée mêlée",21:"Portée distance",22:"Portée magique",23:"Crit. mêlée",24:"Crit. distance",25:"Crit. magique",43:"Attaque navale",69:"Soins reçus",113:"EXP terre",114:"EXP mer",126:"Toutes stats",129:"Toutes attaques",130:"Toutes défenses",131:"Vitesse d'attaque",155:"CON",156:"STR",157:"INT",158:"DEX",159:"WIS",160:"VOL",161:"LUC",173:"Précision"};
+const EFFECT_FR={0:"HP max",1:"MP max",2:"Régén. HP",3:"Régén. MP",4:"Esquive",5:"Vitesse de déplacement",6:"Att. mêlée max",7:"Att. mêlée min",8:"Att. distance max",9:"Att. distance min",10:"Att. magique max",11:"Att. magique min",12:"Déf. physique",13:"Déf. magique",14:"Préc. mêlée",15:"Préc. distance",16:"Préc. magique",17:"Vit. att. mêlée",18:"Vit. att. distance",19:"Vit. att. magique",20:"Portée mêlée",21:"Portée distance",22:"Portée magique",23:"Crit. mêlée",24:"Crit. distance",25:"Crit. magique",43:"Attaque navale",69:"Soins reçus",113:"EXP terre",114:"EXP mer",126:"Toutes stats",129:"Toutes attaques",130:"Toutes défenses",131:"Vitesse d'attaque",155:"CON",156:"STR",157:"INT",158:"DEX",159:"WIS",160:"VOL",161:"LUC",173:"Précision"};
+const EFFECT_EN={0:"Max HP",1:"Max MP",2:"HP regen",3:"MP regen",4:"Evasion",5:"Movement speed",6:"Max melee atk",7:"Min melee atk",8:"Max ranged atk",9:"Min ranged atk",10:"Max magic atk",11:"Min magic atk",12:"Physical def",13:"Magic def",14:"Melee accuracy",15:"Ranged accuracy",16:"Magic accuracy",17:"Melee atk speed",18:"Ranged atk speed",19:"Magic atk speed",20:"Melee range",21:"Ranged range",22:"Magic range",23:"Melee crit",24:"Ranged crit",25:"Magic crit",43:"Naval attack",69:"Healing received",113:"Land EXP",114:"Sea EXP",126:"All stats",129:"All attacks",130:"All defenses",131:"Attack speed",155:"CON",156:"STR",157:"INT",158:"DEX",159:"WIS",160:"VOL",161:"LUC",173:"Accuracy"};
+const EFFECT=LANG==="en"?EFFECT_EN:EFFECT_FR;
 const SLOTS=[
-  ["weapon","Arme I","weapon",true],["shield","Bouclier I","shield",false],["weapon2","Arme II","weapon",true],["shield2","Bouclier II","shield",false],["weapon3","Arme III","weapon",true],["shield3","Bouclier III","shield",false],["coat","Torse","coat",true],["pants","Jambes","pants",true],
-  ["gauntlet","Gants","gauntlet",true],["shoes","Bottes","shoes",true],["hat","Chapeau","hat",false],["dress","Dress","dress",false],
-  ["necklace","Collier","necklace",false],["earring","Boucles d'oreilles","earring",false],["ring1","Anneau 1","ring",false],["ring2","Anneau 2","ring",false]];
-const WTYPE={one_handed_sword:"Épée 1 main",two_handed_sword:"Épée 2 mains",dagger:"Dague",rapier:"Rapière",cariad:"Cariad",rifle:"Fusil",duals:"Pistolets doubles"};
-const WSKILL={"One-handed Sword":"Épée 1 main","Two-handed Sword":"Épée 2 mains","Dagger":"Dague","Rapier":"Rapière","Cariad":"Cariad","Rifle":"Fusil","Duals":"Pistolets doubles","Shield":"Bouclier","Fishing Rod":"Canne à pêche","All":"Toutes"};
+  ["weapon",ln("Arme I","Weapon I"),"weapon",true],["shield",ln("Bouclier I","Shield I"),"shield",false],["weapon2",ln("Arme II","Weapon II"),"weapon",true],["shield2",ln("Bouclier II","Shield II"),"shield",false],["weapon3",ln("Arme III","Weapon III"),"weapon",true],["shield3",ln("Bouclier III","Shield III"),"shield",false],["coat",ln("Torse","Chest"),"coat",true],["pants",ln("Jambes","Pants"),"pants",true],
+  ["gauntlet",ln("Gants","Gloves"),"gauntlet",true],["shoes",ln("Bottes","Shoes"),"shoes",true],["hat",ln("Chapeau","Hat"),"hat",false],["dress","Dress","dress",false],
+  ["necklace",ln("Collier","Necklace"),"necklace",false],["earring",ln("Boucles d'oreilles","Earrings"),"earring",false],["ring1",ln("Anneau 1","Ring 1"),"ring",false],["ring2",ln("Anneau 2","Ring 2"),"ring",false]];
+const WTYPE=LANG==="en"?{one_handed_sword:"One-handed sword",two_handed_sword:"Two-handed sword",dagger:"Dagger",rapier:"Rapier",cariad:"Cariad",rifle:"Rifle",duals:"Dual guns"}:{one_handed_sword:"Épée 1 main",two_handed_sword:"Épée 2 mains",dagger:"Dague",rapier:"Rapière",cariad:"Cariad",rifle:"Fusil",duals:"Pistolets doubles"};
+const WSKILL=LANG==="en"?{}:{"One-handed Sword":"Épée 1 main","Two-handed Sword":"Épée 2 mains","Dagger":"Dague","Rapier":"Rapière","Cariad":"Cariad","Rifle":"Fusil","Duals":"Pistolets doubles","Shield":"Bouclier","Fishing Rod":"Canne à pêche","All":"Toutes"};
 const RANGED=new Set(["rifle","duals"]);
 const NO_SHIELD=new Set(["two_handed_sword","rifle","duals"]);
-const GRADE=["Normal","Rare","Unique","Légendaire"];
+const GRADE=["Normal","Rare","Unique",ln("Légendaire","Legendary")];
 const WSETS=[["weapon","shield"],["weapon2","shield2"],["weapon3","shield3"]]; // 3 weapon sets, only the active one counts
 const setOf=key=>WSETS.findIndex(p=>p.includes(key));
 const isActive=key=>{const i=setOf(key);return i<0||i===(S.ws||1)-1};
@@ -301,7 +337,7 @@ const $=id=>document.getElementById(id);
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2200)}
 const iconStyle=i=>`background-position:-${(i%48)*32}px -${Math.floor(i/48)*32}px`;
-const fmtB=b=>{const n=EFFECT[b[0]]||("Effet "+b[0]);if(b[1]==="*")return `${n} ${b[2]>=0?"+":""}${+(b[2]*100).toFixed(1)}%`;return `${n} ${b[2]>=0?"+":""}${+b[2].toFixed(1)}`};
+const fmtB=b=>{const n=EFFECT[b[0]]||(ln("Effet ","Effect ")+b[0]);if(b[1]==="*")return `${n} ${b[2]>=0?"+":""}${+(b[2]*100).toFixed(1)}%`;return `${n} ${b[2]>=0?"+":""}${+b[2].toFixed(1)}`};
 
 const esc=t=>String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
 const fmtDesc=t=>esc(t).replace(/\\n|\n/g,"<br>");
@@ -345,7 +381,7 @@ function canUse(it){
 function pruneEquip(){
   const gone=[];
   for(const [key,,kind] of SLOTS){const it=itemFrom(kind,S.eq[key]);if(it&&!canUse(it)){gone.push(it.n);delete S.eq[key];delete S.up[key];if(S.es)delete S.es[key]}}
-  if(gone.length)toast(`Retiré (non utilisable) : ${gone.join(", ")}`);
+  if(gone.length)toast(ln("Retiré (non utilisable) : ","Removed (not usable): ")+gone.join(", "));
 }
 function equipped(){const o={};for(const [k] of SLOTS){const it=S.eq[k];if(it)o[k]=it;}return o;}
 function itemFrom(slotKind,idx){return idx==null?null:D.items[slotKind][idx]}
@@ -384,8 +420,8 @@ function compute(){
   const shieldOn=SLOTS.some(([k,,kind])=>kind==="shield"&&isActive(k)&&itemFrom(kind,S.eq[k]));
   for(const [k,lv] of Object.entries(S.sk||{})){const sk=skills()[k];if(!sk||!lv||!sk.lv[lv-1])continue;
     const d=sk.lv[lv-1][7]||"";if(/Toggle|for \d+ (minutes|seconds)/.test(d))continue;
-    {const m=d.match(/wearing (?:a )?(one-handed sword|two-handed sword|rifle|Dual Guns)[^\d]*by (\d+)/i);if(m&&wpn&&MASTERY[m[1].toLowerCase()]===wpn.t){mast+=+m[2];passives.push(sk.n+" "+lv+" : attaque +"+m[2])}}
-    for(const [re,codes,cond] of PASSIVES){const m=d.match(re);if(m&&(!cond||cond(shieldOn))){codes.forEach(c=>push([c,"+",+m[1]]));passives.push(sk.n+" "+lv+" : "+fmtB([codes[0],"+",+m[1]]))}}}
+    {const m=d.match(/wearing (?:a )?(one-handed sword|two-handed sword|rifle|Dual Guns)[^\d]*by (\d+)/i);if(m&&wpn&&MASTERY[m[1].toLowerCase()]===wpn.t){mast+=+m[2];passives.push(sk.n+" "+lv+ln(" : attaque +",": attack +")+m[2])}}
+    for(const [re,codes,cond] of PASSIVES){const m=d.match(re);if(m&&(!cond||cond(shieldOn))){codes.forEach(c=>push([c,"+",+m[1]]));passives.push(sk.n+" "+lv+ln(" : ",": ")+fmtB([codes[0],"+",+m[1]]))}}}
   const t={};for(const [k] of STATS)t[k]=c.base[k]+(S.pts[k]||0)+stb[k];
   const b=base(S.cls,L,t);
   // % bonuses apply to the unmodified value: class base + stat points only (no item/essence/set stat bonuses),
@@ -425,7 +461,7 @@ function compute(){
 function renderHeader(){
   $("classes").innerHTML=Object.entries(CLASSES).map(([k,c])=>`<button type="button" class="cls" data-c="${k}" aria-pressed="${S.cls===k}">${c.name}</button>`).join("");
   const j=$("job");
-  j.innerHTML=`<option value="">${S.land<40?"Disponible au niv. 40":"Aucun"}</option>`+CLASSES[S.cls].jobs.map(n=>`<option ${S.job===n?"selected":""}>${n}</option>`).join("");
+  j.innerHTML=`<option value="">${S.land<40?ln("Disponible au niv. 40","Available at lvl 40"):ln("Aucun","None")}</option>`+CLASSES[S.cls].jobs.map(n=>`<option ${S.job===n?"selected":""}>${n}</option>`).join("");
   j.disabled=S.land<40; if(S.land<40)j.value="";
   $("lvLand").value=S.land;$("lvSea").value=S.sea;$("gender").value=S.gender;
 }
@@ -434,24 +470,24 @@ function renderHeader(){
 function renderStats(){
   const {t,stb,out,extras,sets,passives}=compute();
   const left=pointsTotal()-pointsUsed();
-  const pl=$("ptsLeft");pl.textContent=`${left} point${Math.abs(left)>1?"s":""} libre${Math.abs(left)>1?"s":""}`;pl.className="pill"+(left<0?" warn":"");
-  $("alloc").innerHTML=STATS.map(([k,ab,full])=>`<div class="arow" title="${full}"><b>${ab}</b><span class="base" title="Base de la classe et points répartis à la main">base ${CLASSES[S.cls].base[k]} · points +${S.pts[k]||0}</span><span class="bonus" title="Bonus de l'équipement : objets, essences, sceaux, sets">${stb[k]?"bonus +"+stb[k]:""}</span><span class="tot">${t[k]}</span>${k==="luc"?"<span class=\"step\"></span>":`<span class="step"><button type="button" data-s="${k}" data-d="-1" aria-label="Retirer en ${full}">−</button><button type="button" data-s="${k}" data-d="1" aria-label="Ajouter en ${full}">+</button></span>`}</div>`).join("");
+  const pl=$("ptsLeft");pl.textContent=ln(`${left} point${Math.abs(left)>1?"s":""} libre${Math.abs(left)>1?"s":""}`,`${left} free point${Math.abs(left)!==1?"s":""}`);pl.className="pill"+(left<0?" warn":"");
+  $("alloc").innerHTML=STATS.map(([k,ab,full])=>`<div class="arow" title="${full}"><b>${ab}</b><span class="base" title="${ln("Base de la classe et points répartis à la main","Class base and manually allocated points")}">base ${CLASSES[S.cls].base[k]} · points +${S.pts[k]||0}</span><span class="bonus" title="${ln("Bonus de l'équipement : objets, essences, sceaux, sets","Equipment bonus: items, essences, seals, sets")}">${stb[k]?"bonus +"+stb[k]:""}</span><span class="tot">${t[k]}</span>${k==="luc"?"<span class=\"step\"></span>":`<span class="step"><button type="button" data-s="${k}" data-d="-1" aria-label="${ln("Retirer en","Remove from")} ${full}">−</button><button type="button" data-s="${k}" data-d="1" aria-label="${ln("Ajouter en","Add to")} ${full}">+</button></span>`}</div>`).join("");
   const row=(l,v)=>`<dt>${l}</dt><dd>${v}</dd>`;
   $("derived").innerHTML=
-    `<div class="grp label">Vitalité</div>`+row("HP",out.hp)+row("MP",out.mp)+
-    `<div class="grp label">Mêlée</div>`+row("Attaque",`${out.melMin} ~ ${out.melMax}`)+row("Précision",out.hm)+row("Critique",out.cm)+
-    `<div class="grp label">Distance</div>`+row("Attaque",`${out.rngMin} ~ ${out.rngMax}`)+row("Précision",out.hr)+row("Critique",out.crg)+
-    `<div class="grp label">Magie</div>`+row("Attaque",`${out.magMin} ~ ${out.magMax}`)+row("Précision",out.hg)+row("Critique",out.cg)+
-    `<div class="grp label">Défense</div>`+row("Déf. physique",out.pd)+row("Déf. magique",out.md)+row("Esquive",out.av)+
-    (out.speed?`<div class="grp label">Arme</div>`+row("Vitesse d'attaque",(out.speed/1000).toFixed(2)+" s")+row("Portée",((110+out.range)/100).toFixed(1)+" m"):"");
-  $("extras").innerHTML=extras.map(e=>`<span>${e}</span>`).join("")+sets.map(({st,n,tr})=>`<span style="${n>=tr[0]?"border-color:var(--ok)":""}">Set ${esc(st.n)} ${Math.min(n,st.c)}/${st.c} : ${st.b.map((b,i)=>`<b style="font-weight:600;color:${n>=tr[i]?"var(--ok)":"var(--muted)"}">[${tr[i]}] ${fmtB(b)}</b>`).join(" ")}</span>`).join("")+(passives.length?`<span>Passifs : ${passives.map(esc).join(" · ")}</span>`:"");
+    `<div class="grp label">${ln("Vitalité","Vitality")}</div>`+row("HP",out.hp)+row("MP",out.mp)+
+    `<div class="grp label">${ln("Mêlée","Melee")}</div>`+row(ln("Attaque","Attack"),`${out.melMin} ~ ${out.melMax}`)+row(ln("Précision","Accuracy"),out.hm)+row(ln("Critique","Critical"),out.cm)+
+    `<div class="grp label">${ln("Distance","Ranged")}</div>`+row(ln("Attaque","Attack"),`${out.rngMin} ~ ${out.rngMax}`)+row(ln("Précision","Accuracy"),out.hr)+row(ln("Critique","Critical"),out.crg)+
+    `<div class="grp label">${ln("Magie","Magic")}</div>`+row(ln("Attaque","Attack"),`${out.magMin} ~ ${out.magMax}`)+row(ln("Précision","Accuracy"),out.hg)+row(ln("Critique","Critical"),out.cg)+
+    `<div class="grp label">${ln("Défense","Defense")}</div>`+row(ln("Déf. physique","Physical def."),out.pd)+row(ln("Déf. magique","Magic def."),out.md)+row(ln("Esquive","Evasion"),out.av)+
+    (out.speed?`<div class="grp label">${ln("Arme","Weapon")}</div>`+row(ln("Vitesse d'attaque","Attack speed"),(out.speed/1000).toFixed(2)+" s")+row(ln("Portée","Range"),((110+out.range)/100).toFixed(1)+" m"):"");
+  $("extras").innerHTML=extras.map(e=>`<span>${e}</span>`).join("")+sets.map(({st,n,tr})=>`<span style="${n>=tr[0]?"border-color:var(--ok)":""}">Set ${esc(st.n)} ${Math.min(n,st.c)}/${st.c}${ln(" : ",": ")}${st.b.map((b,i)=>`<b style="font-weight:600;color:${n>=tr[i]?"var(--ok)":"var(--muted)"}">[${tr[i]}] ${fmtB(b)}</b>`).join(" ")}</span>`).join("")+(passives.length?`<span>${ln("Passifs : ","Passives: ")}${passives.map(esc).join(" · ")}</span>`:"");
   renderBuffs();
 }
 function renderBuffs(){S.bf=S.bf||{};
   const list=BUFFS.filter(b=>(!b.sk||buffSkill(b))&&buffOk(b));
   $("buffs").innerHTML=list.map(b=>{const lv=S.bf[b.id]||0,max=buffMax(b),on=lv>0;const cur=on?Math.min(lv,max):max;
-    const fx=buffFx(b,cur).map(fmtB).join(", ");const who=b.pet?"esprit":b.share?"groupe":"perso";
-    return `<div class="brow${on?" on":""}"><label><input type="checkbox" data-bf="${b.id}"${on?" checked":""}> ${esc(buffName(b))} <span class="label">${who}${b.cls&&b.share?" · "+CLASSES[b.cls].name:""}</span></label>${max>1?`<select data-bflv="${b.id}" aria-label="Niveau de ${esc(buffName(b))}">${Array.from({length:max},(_,i)=>`<option value="${i+1}"${i+1===cur?" selected":""}>${b.tiers?["I","II","III","IV","V"][i]:"niv. "+(i+1)}</option>`).join("")}</select>`:""}<span class="bfx">${esc(fx)}</span></div>`}).join("");
+    const fx=buffFx(b,cur).map(fmtB).join(", ");const who=b.pet?ln("esprit","spirit"):b.share?ln("groupe","party"):ln("perso","self");
+    return `<div class="brow${on?" on":""}"><label><input type="checkbox" data-bf="${b.id}"${on?" checked":""}> ${esc(buffName(b))} <span class="label">${who}${b.cls&&b.share?" · "+CLASSES[b.cls].name:""}</span></label>${max>1?`<select data-bflv="${b.id}" aria-label="${ln("Niveau de","Level of")} ${esc(buffName(b))}">${Array.from({length:max},(_,i)=>`<option value="${i+1}"${i+1===cur?" selected":""}>${b.tiers?["I","II","III","IV","V"][i]:ln("niv. ","lvl ")+(i+1)}</option>`).join("")}</select>`:""}<span class="bfx">${esc(fx)}</span></div>`}).join("");
 }
 $("buffs").addEventListener("change",e=>{const t=e.target;S.bf=S.bf||{};
   if(t.dataset.bf){const b=BUFFS.find(x=>x.id===t.dataset.bf);S.bf[b.id]=t.checked?(+(document.querySelector(`[data-bflv="${b.id}"]`)?.value)||buffMax(b)):0}
@@ -466,15 +502,15 @@ function renderSlots(){
     const blocked=kind==="shield"&&wpn&&NO_SHIELD.has(wpn.t);
     const bad=it&&!canUse(it);
     let sub=label;
-    if(it){const parts=[];if(it.t)parts.push(WTYPE[it.t]);parts.push("niv. "+(it.l||0));const lv=S.up[key]||0;const ub=upg&&it.u&&lv>0&&D.upgrades[it.u]?(D.upgrades[it.u][lv]||[]):[];if(ub.length)parts.push("+"+lv+" : "+ub.map(fmtB).join(", "));else if(it.b.length)parts.push(it.b.slice(0,2).map(fmtB).join(", "));sub=parts.join(" · ")}
-    const up=upg&&it&&it.u?`<select data-up="${key}" aria-label="Amélioration ${label}">${Array.from({length:D.upgrades[it.u]?D.upgrades[it.u].length:16},(_,i)=>`<option value="${i}" ${(S.up[key]||0)===i?"selected":""}>+${i}</option>`).join("")}</select>`:"";
-    return `<div class="slot-wrap"><button type="button" class="slot${up?" has-up":""}" data-slot="${key}" ${blocked?"disabled title='Arme à deux mains équipée'":""}>
+    if(it){const parts=[];if(it.t)parts.push(WTYPE[it.t]);parts.push(ln("niv. ","lvl ")+(it.l||0));const lv=S.up[key]||0;const ub=upg&&it.u&&lv>0&&D.upgrades[it.u]?(D.upgrades[it.u][lv]||[]):[];if(ub.length)parts.push("+"+lv+ln(" : ",": ")+ub.map(fmtB).join(", "));else if(it.b.length)parts.push(it.b.slice(0,2).map(fmtB).join(", "));sub=parts.join(" · ")}
+    const up=upg&&it&&it.u?`<select data-up="${key}" aria-label="${ln("Amélioration","Upgrade")} ${label}">${Array.from({length:D.upgrades[it.u]?D.upgrades[it.u].length:16},(_,i)=>`<option value="${i}" ${(S.up[key]||0)===i?"selected":""}>+${i}</option>`).join("")}</select>`:"";
+    return `<div class="slot-wrap"><button type="button" class="slot${up?" has-up":""}" data-slot="${key}" ${blocked?`disabled title="${ln("Arme à deux mains équipée","Two-handed weapon equipped")}"`:""}>
       <span class="ico">${it?`<span class="icon" style="${iconStyle(it.i)}"></span>`:`<span class="label" style="font-size:9px">${label.slice(0,4)}</span>`}</span>
-      <span style="min-width:0"><span class="label">${label}${bad?' · <span style="color:var(--warn)">non utilisable</span>':""}</span><div class="nm ${it?"g"+(it.g||0):"empty"}">${it?it.n:(blocked?"Bloqué par l'arme":"Vide")}</div><div class="sub">${it?sub:"&nbsp;"}</div></span>
-      <span></span></button>${up?`<span style="position:absolute;right:8px;top:30px;transform:translateY(-50%)">${up}</span>`:""}${upg&&it?`<div class="ess"><span class="elabel">Essences</span>${esList(key).map((ei,pos)=>{const e=ei!=null?D.essences[ei]:null;const lbl=(pos<2?"Slot core "+(pos+1):"Slot méta "+(pos-1))+(e?" : "+e.n+" ("+e.b.map(fmtB).join(", ")+")":", vide");return `<button type="button" class="es${pos<2?" core":""}${e?" set":""}" data-es="${key}:${pos}" title="${lbl.replace(/"/g,"&quot;")}" aria-label="${lbl.replace(/"/g,"&quot;")}">${e?`<span class="icon" style="${iconStyle(e.i)}"></span>`:(pos<2?"◆":"+")}</button>`}).join("")}${sealType(kind,it)?`<button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="Sceaux et options" aria-label="Sceaux et options de ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button>`:""}</div>`:""}${!upg&&it&&sealType(kind,it)?`<div class="ess"><button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="Sceaux et options" aria-label="Sceaux et options de ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button></div>`:""}</div>`;
+      <span style="min-width:0"><span class="label">${label}${bad?` · <span style="color:var(--warn)">${ln("non utilisable","not usable")}</span>`:""}</span><div class="nm ${it?"g"+(it.g||0):"empty"}">${it?it.n:(blocked?ln("Bloqué par l'arme","Blocked by weapon"):ln("Vide","Empty"))}</div><div class="sub">${it?sub:"&nbsp;"}</div></span>
+      <span></span></button>${up?`<span style="position:absolute;right:8px;top:30px;transform:translateY(-50%)">${up}</span>`:""}${upg&&it?`<div class="ess"><span class="elabel">Essences</span>${esList(key).map((ei,pos)=>{const e=ei!=null?D.essences[ei]:null;const lbl=(pos<2?ln("Slot core ","Core slot ")+(pos+1):ln("Slot méta ","Meta slot ")+(pos-1))+(e?ln(" : ",": ")+e.n+" ("+e.b.map(fmtB).join(", ")+")":ln(", vide",", empty"));return `<button type="button" class="es${pos<2?" core":""}${e?" set":""}" data-es="${key}:${pos}" title="${lbl.replace(/"/g,"&quot;")}" aria-label="${lbl.replace(/"/g,"&quot;")}">${e?`<span class="icon" style="${iconStyle(e.i)}"></span>`:(pos<2?"◆":"+")}</button>`}).join("")}${sealType(kind,it)?`<button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="${ln("Sceaux et options","Seals")}" aria-label="${ln("Sceaux et options de","Seals of")} ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button>`:""}</div>`:""}${!upg&&it&&sealType(kind,it)?`<div class="ess"><button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="${ln("Sceaux et options","Seals")}" aria-label="${ln("Sceaux et options de","Seals of")} ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button></div>`:""}</div>`;
   };
   const ROM=["I","II","III"];
-  $("slots").innerHTML=`<div class="wsets"><div class="wsets-h"><span class="label">Sets d'armes · seul le set actif compte</span><div class="wtabs" role="group" aria-label="Set d'armes actif">${ROM.map((r,i)=>`<button type="button" class="cls" data-ws="${i+1}" aria-pressed="${(S.ws||1)===i+1}">Set ${r}</button>`).join("")}</div></div>`+
+  $("slots").innerHTML=`<div class="wsets"><div class="wsets-h"><span class="label">${ln("Sets d'armes · seul le set actif compte","Weapon sets · only the active set counts")}</span><div class="wtabs" role="group" aria-label="${ln("Set d'armes actif","Active weapon set")}">${ROM.map((r,i)=>`<button type="button" class="cls" data-ws="${i+1}" aria-pressed="${(S.ws||1)===i+1}">Set ${r}</button>`).join("")}</div></div>`+
     WSETS.map((pair,i)=>`<div class="wrow${(S.ws||1)===i+1?"":" off"}"><span class="wnum">${ROM[i]}</span>${pair.map(k=>slotHtml(SLOTS.find(x=>x[0]===k))).join("")}</div>`).join("")+`</div>`+
     SLOTS.filter(x=>setOf(x[0])<0).map(slotHtml).join("");
 }
@@ -482,23 +518,23 @@ function renderSlots(){
 /* ---------- picker ---------- */
 let pkSlot=null,pkEs=null;
 function openPicker(key){
-  pkSlot=key;pkEs=null;$("pkClear").textContent="Retirer l'objet";$("pkBonus").parentElement.hidden=false;$("pkSort").hidden=false;const [, label, kind]=SLOTS.find(s=>s[0]===key);
+  pkSlot=key;pkEs=null;$("pkClear").textContent=ln("Retirer l'objet","Remove item");$("pkBonus").parentElement.hidden=false;$("pkSort").hidden=false;const [, label, kind]=SLOTS.find(s=>s[0]===key);
   $("pkTitle").textContent=label;$("pkSearch").value="";
   const ty=$("pkType");ty.hidden=kind!=="weapon";
-  if(kind==="weapon")ty.innerHTML=`<option value="">Toutes les armes</option>`+Object.entries(WTYPE).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  if(kind==="weapon")ty.innerHTML=`<option value="">${ln("Toutes les armes","All weapons")}</option>`+Object.entries(WTYPE).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
   renderPicker();$("picker").showModal();$("pkSearch").focus();
 }
 function openEss(key,pos){
   pkSlot=key;pkEs=pos;const label=SLOTS.find(s=>s[0]===key)[1];
-  $("pkTitle").textContent=`${label} · ${pos<2?"slot core "+(pos+1)+" (core ou méta)":"slot méta "+(pos-1)}`;$("pkSearch").value="";
+  $("pkTitle").textContent=`${label} · ${pos<2?ln("slot core ","core slot ")+(pos+1)+ln(" (core ou méta)"," (core or meta)"):ln("slot méta ","meta slot ")+(pos-1)}`;$("pkSearch").value="";
   $("pkType").hidden=true;$("pkBonus").parentElement.hidden=true;$("pkSort").hidden=true;
-  $("pkClear").textContent="Retirer l'essence";
+  $("pkClear").textContent=ln("Retirer l'essence","Remove essence");
   renderPicker();$("picker").showModal();$("pkSearch").focus();
 }
 function renderEssPicker(){
   const q=$("pkSearch").value.trim().toLowerCase(),usable=$("pkUsable").checked,kind=SLOTS.find(s=>s[0]===pkSlot)[2];
   const taken={};esList(pkSlot).forEach((v,i)=>{if(i!==pkEs&&v!=null&&D.essences[v]){const n=D.essences[v].n;taken[n]=(taken[n]||0)+1}});
-  const TY={ALL:"Arme ou armure",WEAPONS:"Arme",ARMOR:"Armure"};
+  const TY={ALL:ln("Arme ou armure","Weapon or armor"),WEAPONS:ln("Arme","Weapon"),ARMOR:ln("Armure","Armor")};
   let list=D.essences.map((e,i)=>({e,i})).filter(({e,i})=>{
     if(e.k&&pkEs>=2)return false;
     if(!esTypeOk(e,kind))return false;
@@ -507,7 +543,7 @@ function renderEssPicker(){
     if(q){const hay=(e.n+" "+e.b.map(fmtB).join(" ")).toLowerCase();if(!hay.includes(q))return false}
     return true});
   list.sort((a,b)=>b.e.l-a.e.l||a.e.n.localeCompare(b.e.n));
-  $("pkList").innerHTML=list.length?list.map(({e,i})=>`<button type="button" class="it" data-ei="${i}"><span class="icon" style="${iconStyle(e.i)}"></span><span style="min-width:0"><div class="nm g${e.g||0}">${e.n}</div><div class="st">${e.b.map(fmtB).join(", ")} · ${TY[e.t]}</div></span><span class="lv">équip. niv. ${e.l}+</span></button>`).join(""):`<p class="hint" style="padding:12px">Aucune essence ne correspond. Décochez « Utilisable par ce personnage » pour tout voir.</p>`;
+  $("pkList").innerHTML=list.length?list.map(({e,i})=>`<button type="button" class="it" data-ei="${i}"><span class="icon" style="${iconStyle(e.i)}"></span><span style="min-width:0"><div class="nm g${e.g||0}">${e.n}</div><div class="st">${e.b.map(fmtB).join(", ")} · ${TY[e.t]}</div></span><span class="lv">${ln("équip. niv.","gear lvl")} ${e.l}+</span></button>`).join(""):`<p class="hint" style="padding:12px">${ln("Aucune essence ne correspond. Décochez « Utilisable par ce personnage » pour tout voir.","No matching essence. Untick “Usable by this character” to see everything.")}</p>`;
   $("pkCount").textContent=`${list.length} essence${list.length>1?"s":""}`;
 }
 function renderPicker(){
@@ -525,12 +561,12 @@ function renderPicker(){
   $("pkList").innerHTML=list.length?list.map(({it,i})=>{
     const st=[];
     if(it.pa)st.push(`Phys ${it.pa[0]}~${it.pa[1]} · Mag ${it.ma[0]}~${it.ma[1]} · ${WTYPE[it.t]}`);
-    if(it.pd!=null)st.push(`Déf ${it.pd} / ${it.md}`);
+    if(it.pd!=null)st.push(`${ln("Déf","Def")} ${it.pd} / ${it.md}`);
     if(it.b.length)st.push(it.b.map(fmtB).join(", "));
-    if(it.c.length){const jobs=Object.values(CLASSES).flatMap(c=>c.jobs);st.push((it.c.every(c=>jobs.includes(c))?"Job requis : ":"Classes : ")+it.c.join(", "))}
+    if(it.c.length){const jobs=Object.values(CLASSES).flatMap(c=>c.jobs);st.push((it.c.every(c=>jobs.includes(c))?ln("Job requis : ","Required job: "):ln("Classes : ","Classes: "))+it.c.join(", "))}
     if(it.st!=null&&D.sets[it.st])st.push("Set "+D.sets[it.st].n);
-    return `<button type="button" class="it" data-i="${i}"><span class="icon" style="${iconStyle(it.i)}"></span><span style="min-width:0"><div class="nm g${it.g||0}">${it.n}</div><div class="st">${st.join(" · ")||"Sans bonus"}</div></span><span class="lv">niv. ${it.l||0}${it.g?"<br>"+GRADE[it.g]:""}</span></button>`}).join(""):`<p class="hint" style="padding:12px">Aucun objet ne correspond. Décochez « Utilisable par ce personnage » pour tout voir.</p>`;
-  $("pkCount").textContent=total>300?`300 affichés sur ${total}, affinez la recherche`:`${total} objet${total>1?"s":""}`;
+    return `<button type="button" class="it" data-i="${i}"><span class="icon" style="${iconStyle(it.i)}"></span><span style="min-width:0"><div class="nm g${it.g||0}">${it.n}</div><div class="st">${st.join(" · ")||ln("Sans bonus","No bonus")}</div></span><span class="lv">${ln("niv.","lvl")} ${it.l||0}${it.g?"<br>"+GRADE[it.g]:""}</span></button>`}).join(""):`<p class="hint" style="padding:12px">${ln("Aucun objet ne correspond. Décochez « Utilisable par ce personnage » pour tout voir.","No matching item. Untick “Usable by this character” to see everything.")}</p>`;
+  $("pkCount").textContent=total>300?ln(`300 affichés sur ${total}, affinez la recherche`,`300 shown out of ${total}, refine your search`):`${total} ${ln("objet","item")}${total>1||(LANG==="en"&&total===0)?"s":""}`;
 }
 
 /* ---------- manual bonuses ---------- */
@@ -539,23 +575,23 @@ const SEALS={"t":{"coat":[0,1,2,3,6,8,10,12],"pants":[0,1,2,3,6,8,10,13],"gauntl
 const sealType=(kind,it)=>it&&!it.cs&&(!it.cr||(it.l>=101&&it.l<=105))?SEALS.t[kind==="weapon"?it.t:kind]:null; // no seals on cash/event or craftable items, except Realm items lvl 101-105; shields have no seal table (Mattéo)
 const sealRange=(c,it)=>{const r=SEALS.r[c];if(!r)return null;const row=Math.min(12,Math.max(1,Math.ceil((it.l||1)/10)));return [r[0],r[1][row-1]]};
 const EX_CODES=[155,156,157,158,159,160,126,0,1,2,3,6,7,8,9,10,11,129,12,13,130,173,14,15,16,23,24,25,4,17,18,19,131,5];
-function openEx(key){exKey=key;if(S.ex&&S.ex[key])S.ex[key]=S.ex[key].filter(b=>b[3]==="s");const [,label,kind]=SLOTS.find(s=>s[0]===key);const it=itemFrom(kind,S.eq[key]);$("exTitle").textContent="Sceaux et options · "+label;
+function openEx(key){exKey=key;if(S.ex&&S.ex[key])S.ex[key]=S.ex[key].filter(b=>b[3]==="s");const [,label,kind]=SLOTS.find(s=>s[0]===key);const it=itemFrom(kind,S.eq[key]);$("exTitle").textContent=ln("Sceaux et options · ","Seals · ")+label;
   const st=sealType(kind,it)||[];
   const fmtR=(c)=>{const [op,[a,b]]=sealRange(c,it);return op==="*"?`${+(a*100).toFixed(1)}–${+(b*100).toFixed(1)} %`:`${a}–${b}`};
-  $("exCode").innerHTML=(st.length?`<optgroup label="Sceaux possibles (niv. ${it.l})">${st.map(c=>`<option value="s${c}">${EFFECT[c]||("Effet "+c)} (${fmtR(c)})</option>`).join("")}</optgroup>`:"");
+  $("exCode").innerHTML=(st.length?`<optgroup label="${ln("Sceaux possibles (niv.","Possible seals (lvl")} ${it.l})">${st.map(c=>`<option value="s${c}">${EFFECT[c]||(ln("Effet ","Effect ")+c)} (${fmtR(c)})</option>`).join("")}</optgroup>`:"");
   $("exVal").value="";$("exPct").checked=false;exSync();renderEx();$("exDlg").showModal()}
 function exSync(){const v=$("exCode").value;const it=exItem();if(v[0]==="s"&&it){const [op,[a,b]]=sealRange(+v.slice(1),it);$("exPct").checked=op==="*";$("exPct").disabled=true;$("exVal").value=op==="*"?+(b*100).toFixed(2):b}else $("exPct").disabled=false}
 function exItem(){const [,,kind]=SLOTS.find(s=>s[0]===exKey);return itemFrom(kind,S.eq[exKey])}
 function renderEx(){const a=((S.ex&&S.ex[exKey])||[]).filter(b=>b[3]==="s");
-  $("exList").innerHTML=a.length?a.map((b,i)=>`<div class="exrow"><span>${b[3]==="s"?"Sceau : ":""}${fmtB(b)}</span><button type="button" class="btn" data-exdel="${i}" aria-label="Retirer">✕</button></div>`).join(""):`<p class="hint" style="margin:0">Aucun bonus ajouté.</p>`}
+  $("exList").innerHTML=a.length?a.map((b,i)=>`<div class="exrow"><span>${b[3]==="s"?ln("Sceau : ","Seal: "):""}${fmtB(b)}</span><button type="button" class="btn" data-exdel="${i}" aria-label="${ln("Retirer","Remove")}">✕</button></div>`).join(""):`<p class="hint" style="margin:0">${ln("Aucun bonus ajouté.","No bonus added.")}</p>`}
 /* ---------- buffs ---------- */
 // share: can be received from any class; otherwise only the caster's own class/job. fx: [regex, codes per capture group, op]
 const BUFFS=[
   // spirit (pet) skills: tiers I..V, values from the pet_skill table
-  {id:"spirit",n:"Esprit : Spirit's Blessing",share:1,pet:1,tiers:[[[0,"+",200],[1,"+",100]],[[0,"+",555],[1,"+",225]],[[0,"+",1125],[1,"+",575]],[[0,"+",1910],[1,"+",1150]]]},
-  {id:"pshield",n:"Esprit : Shield",share:1,pet:1,tiers:[[[12,"+",20],[13,"+",20]],[[12,"+",40],[13,"+",40]],[[12,"+",60],[13,"+",60]],[[12,"+",80],[13,"+",80]],[[12,"+",100],[13,"+",100]]]},
-  {id:"pstrike",n:"Esprit : Increase Striking Power",share:1,pet:1,tiers:[[[129,"+",20]],[[129,"+",40]],[[129,"+",60]],[[129,"+",80]],[[129,"+",100]]]},
-  {id:"pspeed",n:"Esprit : Increase Moving Speed",share:1,pet:1,tiers:[[[5,"*",0.2]],[[5,"*",0.2]]]},
+  {id:"spirit",n:ln("Esprit : ","Spirit: ")+"Spirit's Blessing",share:1,pet:1,tiers:[[[0,"+",200],[1,"+",100]],[[0,"+",555],[1,"+",225]],[[0,"+",1125],[1,"+",575]],[[0,"+",1910],[1,"+",1150]]]},
+  {id:"pshield",n:ln("Esprit : ","Spirit: ")+"Shield",share:1,pet:1,tiers:[[[12,"+",20],[13,"+",20]],[[12,"+",40],[13,"+",40]],[[12,"+",60],[13,"+",60]],[[12,"+",80],[13,"+",80]],[[12,"+",100],[13,"+",100]]]},
+  {id:"pstrike",n:ln("Esprit : ","Spirit: ")+"Increase Striking Power",share:1,pet:1,tiers:[[[129,"+",20]],[[129,"+",40]],[[129,"+",60]],[[129,"+",80]],[[129,"+",100]]]},
+  {id:"pspeed",n:ln("Esprit : ","Spirit: ")+"Increase Moving Speed",share:1,pet:1,tiers:[[[5,"*",0.2]],[[5,"*",0.2]]]},
   {id:"nature",cls:"saint",sk:"cp003600",share:1,fx:[[/defense by (\d+) and (\d+)/,[[12],[13]],"+"]]},
   {id:"life",cls:"saint",sk:"cp009300",share:1,fx:[[/HP by (\d+)/,[[0]],"+"]]},
   {id:"earth",cls:"saint",sk:"cp007800",share:1,fx:[[/defense by (\d+) as well as their attack power and maximum HP by (\d+) and (\d+)/,[[12],[129],[0]],"+"]]},
@@ -580,16 +616,17 @@ function buffFx(b,lv){if(b.tiers)return b.tiers[lv-1]||[];const d=(buffSkill(b).
   return out}
 /* ---------- skills ---------- */
 const skills=()=>D.skills[S.cls];
+const NO_SKP=ln("Plus de points de skill","No skill points left");
 const skPointsTotal=()=>S.land;
 const skPointsUsed=()=>Object.values(S.sk).reduce((a,b)=>a+b,0);
 function skLock(code){
   const s=skills()[code],lv=S.sk[code]||0,cn=CLASSES[S.cls].name;
-  if(s.c.length&&!s.c.includes(cn)&&!(job()&&s.c.includes(job())))return `Réservé au job ${s.c.join(" / ")}`;
+  if(s.c.length&&!s.c.includes(cn)&&!(job()&&s.c.includes(job())))return ln("Réservé au job ","Job only: ")+s.c.join(" / ");
   const miss=s.r.filter(r=>!(S.sk[r]>0)&&skills()[r]);
-  if(miss.length)return "Prérequis : "+miss.map(r=>skills()[r].n).join(", ");
-  if(lv>=s.lv.length)return "Niveau maximum atteint";
-  if(s.lv[lv][0]>S.land)return `Niveau ${lv+1} requiert le niveau ${s.lv[lv][0]}`;
-  if(skPointsUsed()>=skPointsTotal())return "Plus de points de skill";
+  if(miss.length)return ln("Prérequis : ","Requires: ")+miss.map(r=>skills()[r].n).join(", ");
+  if(lv>=s.lv.length)return ln("Niveau maximum atteint","Max level reached");
+  if(s.lv[lv][0]>S.land)return ln(`Niveau ${lv+1} requiert le niveau ${s.lv[lv][0]}`,`Level ${lv+1} requires character level ${s.lv[lv][0]}`);
+  if(skPointsUsed()>=skPointsTotal())return NO_SKP;
   return "";
 }
 function children(code){const out=[];for(const [k,s] of Object.entries(skills()))if(s.r.includes(code)){out.push(k,...children(k))}return out}
@@ -616,27 +653,27 @@ function pruneSkills(){
 }
 function renderTree(){
   const left=skPointsTotal()-skPointsUsed();
-  $("skLeft").textContent=`${left} point${left>1?"s":""} de skill libre${left>1?"s":""} · ${skPointsUsed()}/${skPointsTotal()}`;
+  $("skLeft").textContent=ln(`${left} point${left>1?"s":""} de skill libre${left>1?"s":""}`,`${left} free skill point${left!==1?"s":""}`)+` · ${skPointsUsed()}/${skPointsTotal()}`;
   const tr=$("tree");tr.style.backgroundImage=`url(tree-${S.cls}.png)`;
   tr.innerHTML=Object.entries(skills()).map(([code,s])=>{
     const lv=S.sk[code]||0,lock=skLock(code);
-    const cls=["sk",lv?"lvl":"",(!lv&&lock&&lock!=="Plus de points de skill")?"off":"",selSkill===code?"sel":""].join(" ");
-    return `<button type="button" class="${cls}" data-sk="${code}" style="left:${(s.x-2)/448*100}%;top:${(s.y-2)/503*100}%" aria-label="${s.n} niveau ${lv} sur ${s.lv.length}" title="${s.n}"><span class="b">${lv}/${s.lv.length}</span></button>`}).join("");
+    const cls=["sk",lv?"lvl":"",(!lv&&lock&&lock!==NO_SKP)?"off":"",selSkill===code?"sel":""].join(" ");
+    return `<button type="button" class="${cls}" data-sk="${code}" style="left:${(s.x-2)/448*100}%;top:${(s.y-2)/503*100}%" aria-label="${s.n} ${ln(`niveau ${lv} sur`,`level ${lv} of`)} ${s.lv.length}" title="${s.n}"><span class="b">${lv}/${s.lv.length}</span></button>`}).join("");
   renderDetail();
 }
 function renderDetail(){
   const el=$("detail");
-  if(!selSkill||!skills()[selSkill]){el.innerHTML=`<h3>Choisissez un skill</h3><p>Touchez une icône de l'arbre pour voir sa description, ses coûts par niveau et le monter ou le baisser.</p>`;return}
+  if(!selSkill||!skills()[selSkill]){el.innerHTML=ln(`<h3>Choisissez un skill</h3><p>Touchez une icône de l'arbre pour voir sa description, ses coûts par niveau et le monter ou le baisser.</p>`,`<h3>Pick a skill</h3><p>Tap a tree icon to see its description and cost per level, and to raise or lower it.</p>`);return}
   const s=skills()[selSkill],lv=S.sk[selSkill]||0,lock=skLock(selSkill);
-  const cols=[["Incant.",3,v=>v.toFixed(1)+" s"],["Portée",4,v=>(v/100).toFixed(1)+" m"],["Zone",5,v=>(v/100).toFixed(1)+" m"],["Durée",6,fmtDur]].filter(c=>s.lv.some(l=>l[c[1]]));
+  const cols=[[ln("Incant.","Cast"),3,v=>v.toFixed(1)+" s"],[ln("Portée","Range"),4,v=>(v/100).toFixed(1)+" m"],[ln("Zone","Area"),5,v=>(v/100).toFixed(1)+" m"],[ln("Durée","Duration"),6,fmtDur]].filter(c=>s.lv.some(l=>l[c[1]]));
   el.innerHTML=`<h3>${s.n}</h3>
-   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><span class="pill">Niveau ${lv}/${s.lv.length}</span><span class="pill">${s.c.length?s.c.join(" / "):"Toutes classes"}</span><span class="pill">Arme : ${s.w.split(", ").map(w=>WSKILL[w]||w).join(", ")}</span></div>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><span class="pill">${ln("Niveau","Level")} ${lv}/${s.lv.length}</span><span class="pill">${s.c.length?s.c.join(" / "):ln("Toutes classes","All classes")}</span><span class="pill">${ln("Arme : ","Weapon: ")}${s.w.split(", ").map(w=>WSKILL[w]||w).join(", ")}</span></div>
    <p>${fmtDesc(lv?s.lv[lv-1][7]:s.d)}</p>
-   ${lv<s.lv.length?`<p class="hint"><b>Niveau ${lv+1} :</b> ${fmtDesc(s.lv[lv][7])}</p>`:""}
-   ${s.r.length?`<p class="hint">Prérequis : ${s.r.map(r=>skills()[r]?skills()[r].n:r).join(", ")} (niveau 1 minimum)</p>`:""}
-   <div class="btns"><button type="button" class="btn" data-act="dec" ${lv?"":"disabled"}>−1</button><button type="button" class="btn primary" data-act="inc" ${lock?"disabled":""}>+1</button><button type="button" class="btn" data-act="max" ${lock?"disabled":""}>Max possible</button><button type="button" class="btn" data-act="zero" ${lv?"":"disabled"}>Remettre à 0</button></div>
+   ${lv<s.lv.length?`<p class="hint"><b>${ln(`Niveau ${lv+1} :`,`Level ${lv+1}:`)}</b> ${fmtDesc(s.lv[lv][7])}</p>`:""}
+   ${s.r.length?`<p class="hint">${ln("Prérequis : ","Requires: ")}${s.r.map(r=>skills()[r]?skills()[r].n:r).join(", ")} ${ln("(niveau 1 minimum)","(level 1 minimum)")}</p>`:""}
+   <div class="btns"><button type="button" class="btn" data-act="dec" ${lv?"":"disabled"}>−1</button><button type="button" class="btn primary" data-act="inc" ${lock?"disabled":""}>+1</button><button type="button" class="btn" data-act="max" ${lock?"disabled":""}>Max possible</button><button type="button" class="btn" data-act="zero" ${lv?"":"disabled"}>${ln("Remettre à 0","Reset")}</button></div>
    ${lock?`<div class="why">${lock}</div>`:""}
-   <div class="tblwrap"><table class="lvtable"><thead><tr><th style="text-align:left">Niv.</th><th>Niv. requis</th><th>MP</th><th>Recharge</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}</tr></thead><tbody>
+   <div class="tblwrap"><table class="lvtable"><thead><tr><th style="text-align:left">${ln("Niv.","Lvl")}</th><th>${ln("Niv. requis","Req. lvl")}</th><th>MP</th><th>${ln("Recharge","Cooldown")}</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}</tr></thead><tbody>
    ${s.lv.map((l,i)=>`<tr class="${i+1===lv?"cur":""} ${l[0]>S.land?"locked":""}"><td style="text-align:left">${i+1}</td><td>${l[0]}</td><td>${l[1]}</td><td>${l[2]?(l[2]/1000).toFixed(1)+" s":"–"}</td>${cols.map(c=>`<td>${l[c[1]]?c[2](l[c[1]]):"–"}</td>`).join("")}</tr>`).join("")}
    </tbody></table></div>`;
 }
@@ -655,7 +692,7 @@ function decode(code){
 }
 function renderSaved(){
   const list=store.get("fl-builds")||{};
-  $("saved").innerHTML=Object.keys(list).length?Object.entries(list).map(([n,b])=>`<span>${n.replace(/</g,"&lt;")}<button type="button" data-load="${encodeURIComponent(n)}">Ouvrir</button><button type="button" data-del="${encodeURIComponent(n)}" aria-label="Supprimer ${n.replace(/"/g,"")}">✕</button></span>`).join(""):`<span class="hint" style="border:0;padding:0">Aucun build enregistré pour l'instant.</span>`;
+  $("saved").innerHTML=Object.keys(list).length?Object.entries(list).map(([n,b])=>`<span>${n.replace(/</g,"&lt;")}<button type="button" data-load="${encodeURIComponent(n)}">${ln("Ouvrir","Open")}</button><button type="button" data-del="${encodeURIComponent(n)}" aria-label="${ln("Supprimer","Delete")} ${n.replace(/"/g,"")}">✕</button></span>`).join(""):`<span class="hint" style="border:0;padding:0">${ln("Aucun build enregistré pour l'instant.","No saved build yet.")}</span>`;
 }
 
 function renderAll(){renderHeader();renderStats();renderSlots();renderTree();store.set("fl-current",encode())}
@@ -678,8 +715,8 @@ document.addEventListener("click",e=>{
     $("picker").close();renderAll();return}
   if(t.dataset.sk){const code=t.dataset.sk;selSkill=code;if(!skLock(code)&&e.detail<2)skInc(code,false);renderAll();return}
   if(t.dataset.act){const a=t.dataset.act;if(a==="inc")skInc(selSkill,false);if(a==="max")skInc(selSkill,true);if(a==="dec")skDec(selSkill);if(a==="zero")setSk(selSkill,0);renderAll();return}
-  if(t.dataset.load){const list=store.get("fl-builds")||{};const n=decodeURIComponent(t.dataset.load);S=decode(list[n]);$("bName").value=n;selSkill=null;pruneSkills();pruneEquip();renderAll();toast(`Build « ${n} » chargé`);return}
-  if(t.dataset.del){const list=store.get("fl-builds")||{};delete list[decodeURIComponent(t.dataset.del)];store.set("fl-builds",list);renderSaved();toast("Build supprimé");return}
+  if(t.dataset.load){const list=store.get("fl-builds")||{};const n=decodeURIComponent(t.dataset.load);S=decode(list[n]);$("bName").value=n;selSkill=null;pruneSkills();pruneEquip();renderAll();toast(ln(`Build « ${n} » chargé`,`Build “${n}” loaded`));return}
+  if(t.dataset.del){const list=store.get("fl-builds")||{};delete list[decodeURIComponent(t.dataset.del)];store.set("fl-builds",list);renderSaved();toast(ln("Build supprimé","Build deleted"));return}
 });
 $("tree").addEventListener("contextmenu",e=>{const t=e.target.closest("[data-sk]");if(!t)return;e.preventDefault();selSkill=t.dataset.sk;skDec(selSkill);renderAll()});
 $("tree").addEventListener("dblclick",e=>{const t=e.target.closest("[data-sk]");if(!t)return;skInc(t.dataset.sk,true);renderAll()});
@@ -692,25 +729,27 @@ $("lvLand").addEventListener("change",e=>{S.land=clampIn(e.target,1,120);if(S.la
   pruneSkills();renderAll()});
 $("lvSea").addEventListener("change",e=>{S.sea=clampIn(e.target,1,99);while(pointsUsed()>pointsTotal()){const k=STATS.map(s=>s[0]).sort((a,b)=>S.pts[b]-S.pts[a])[0];S.pts[k]--}renderAll()});
 $("gender").addEventListener("change",e=>{S.gender=e.target.value;pruneEquip();renderAll()});
-$("skReset").addEventListener("click",()=>{S.sk={};renderAll();toast("Arbre réinitialisé")});
+$("skReset").addEventListener("click",()=>{S.sk={};renderAll();toast(ln("Arbre réinitialisé","Tree reset"))});
 ["pkSearch","pkUsable","pkBonus","pkType","pkSort"].forEach(id=>$(id).addEventListener(id==="pkSearch"?"input":"change",renderPicker));
 $("pkClose").addEventListener("click",()=>$("picker").close());
 $("exClose").addEventListener("click",()=>$("exDlg").close());
 $("exCode").addEventListener("change",exSync);
 $("exAdd").addEventListener("click",()=>{const v=parseFloat($("exVal").value);if(!isFinite(v)||!v)return;const raw=$("exCode").value,seal=raw[0]==="s",code=+(seal?raw.slice(1):raw);
   S.ex=S.ex||{};const a=(S.ex[exKey]=S.ex[exKey]||[]);
-  if(seal&&a.filter(b=>b[3]==="s").length>=5){toast("5 sceaux maximum par objet");return}
+  if(seal&&a.filter(b=>b[3]==="s").length>=5){toast(ln("5 sceaux maximum par objet","5 seals max per item"));return}
   const pct=seal?sealRange(code,exItem())[0]==="*":$("exPct").checked;
   a.push(seal?[code,pct?"*":"+",pct?v/100:v,"s"]:[code,pct?"*":"+",pct?v/100:v]);exSync();renderEx();renderAll()});
 $("pkClear").addEventListener("click",()=>{if(pkEs!=null){const a=esList(pkSlot);a[pkEs]=null;S.es[pkSlot]=a}else{delete S.eq[pkSlot];delete S.up[pkSlot];if(S.es)delete S.es[pkSlot]}$("picker").close();renderAll()});
 $("picker").addEventListener("click",e=>{if(e.target===$("picker"))$("picker").close()});
-$("bSave").addEventListener("click",()=>{const n=$("bName").value.trim()||`${CLASSES[S.cls].name}${job()?" "+job():""} niv. ${S.land}`;const list=store.get("fl-builds")||{};list[n]=encode();store.set("fl-builds",list);$("bName").value=n;renderSaved();toast(`Build « ${n} » enregistré`)});
-$("bNew").addEventListener("click",()=>{S={...fresh(),cls:S.cls};$("bName").value="";selSkill=null;renderAll();toast("Nouveau build")});
+$("bSave").addEventListener("click",()=>{const n=$("bName").value.trim()||`${CLASSES[S.cls].name}${job()?" "+job():""} ${ln("niv.","lvl")} ${S.land}`;const list=store.get("fl-builds")||{};list[n]=encode();store.set("fl-builds",list);$("bName").value=n;renderSaved();toast(ln(`Build « ${n} » enregistré`,`Build “${n}” saved`))});
+$("bNew").addEventListener("click",()=>{S={...fresh(),cls:S.cls};$("bName").value="";selSkill=null;renderAll();toast(ln("Nouveau build","New build"))});
 $("bExport").addEventListener("click",()=>{const c=encode();$("bCode").value=c;
-  navigator.clipboard?.writeText(c).then(()=>toast("Code copié"),()=>{$("bCode").select();toast("Code sélectionné, copiez-le")})??($("bCode").select(),toast("Code sélectionné, copiez-le"))});
-$("ptsReset").addEventListener("click",()=>{S.pts={...fresh().pts};renderAll();store.set("fl-current",encode());toast("Points remis à 0")});
-$("bImport").addEventListener("click",()=>{try{S=decode($("bCode").value);selSkill=null;pruneSkills();pruneEquip();renderAll();toast("Build importé")}catch(err){toast("Ce code n'est pas un code de build valide")}});
+  navigator.clipboard?.writeText(c).then(()=>toast(ln("Code copié","Code copied")),()=>{$("bCode").select();toast(ln("Code sélectionné, copiez-le","Code selected, copy it"))})??($("bCode").select(),toast(ln("Code sélectionné, copiez-le","Code selected, copy it")))});
+$("ptsReset").addEventListener("click",()=>{S.pts={...fresh().pts};renderAll();store.set("fl-current",encode());toast(ln("Points remis à 0","Points reset"))});
+$("bImport").addEventListener("click",()=>{try{S=decode($("bCode").value);selSkill=null;pruneSkills();pruneEquip();renderAll();toast(ln("Build importé","Build imported"))}catch(err){toast(ln("Ce code n'est pas un code de build valide","This is not a valid build code"))}});
 
+$("lang").addEventListener("change",e=>{const l=e.target.value;try{localStorage.setItem("fl-lang",l)}catch(err){}location.hash="lang="+l;location.reload()});
+translatePage();
 /* ---------- boot ---------- */
 (window.FLO_DATA?Promise.resolve(window.FLO_DATA):fetch("data.json").then(r=>r.json())).then(d=>{
   D=d;
@@ -725,7 +764,7 @@ $("bImport").addEventListener("click",()=>{try{S=decode($("bCode").value);selSki
     selSkill="ck005800";
   }
   pruneSkills();pruneEquip();renderAll();renderSaved();
-}).catch(()=>{$("detail").innerHTML="<h3>Données indisponibles</h3><p>Le fichier de données n'a pas pu être chargé. Rechargez la page.</p>"});
+}).catch(()=>{$("detail").innerHTML=ln("<h3>Données indisponibles</h3><p>Le fichier de données n'a pas pu être chargé. Rechargez la page.</p>","<h3>Data unavailable</h3><p>The data file could not be loaded. Reload the page.</p>")});
 </script>
 
 </body></html>

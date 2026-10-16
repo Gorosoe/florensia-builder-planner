@@ -1,0 +1,731 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Florensia Build Planner</title><style>body{margin:0}</style><script src="data.js"></script></head><body>
+<title>Florensia Build Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a captain's logbook. Sticky class bar on top, then stats | equipment side by side, skill tree full width below. */
+:root{
+  --bg:#eef1f2; --panel:#fbfcfc; --ink:#1d2a33; --muted:#5d6d77; --line:#d3dade;
+  --sea:#1f5f73; --sea-soft:#dcebef; --brass:#a8742a; --brass-soft:#f3e7d3;
+  --ok:#2f7d4f; --warn:#b4542d;
+  --g0:#3a4750; --g1:#2a6fb5; --g2:#7c4bb3; --g3:#b07a12;
+  --f-display:"Marcellus SC","Trajan Pro",Georgia,serif;
+  --f-body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171c; --panel:#162128; --ink:#e3eaee; --muted:#93a4ae; --line:#2a3943;
+  --sea:#62b3c9; --sea-soft:#183540; --brass:#d9a75a; --brass-soft:#3a2d18;
+  --ok:#6cc391; --warn:#ec8a63; --g0:#c9d3d9; --g1:#79b1ef; --g2:#c29af0; --g3:#e7b64b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171c; --panel:#162128; --ink:#e3eaee; --muted:#93a4ae; --line:#2a3943;
+  --sea:#62b3c9; --sea-soft:#183540; --brass:#d9a75a; --brass-soft:#3a2d18;
+  --ok:#6cc391; --warn:#ec8a63; --g0:#c9d3d9; --g1:#79b1ef; --g2:#c29af0; --g3:#e7b64b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;letter-spacing:.02em}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+
+/* top bar */
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding-block:10px}
+.brand{display:flex;flex-direction:column;margin-right:auto}
+.brand h1{font-size:22px;color:var(--sea)}
+.brand small{color:var(--muted);font-size:12px}
+.classes{display:flex;gap:4px;flex-wrap:wrap}
+.cls{border:1px solid var(--line);background:transparent;border-radius:var(--r);padding:6px 12px;font-weight:600}
+.cls[aria-pressed="true"]{background:var(--sea);border-color:var(--sea);color:var(--panel)}
+.ctl{display:flex;flex-direction:column;gap:2px}
+.ctl select,.ctl input{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:5px 8px;min-width:0}
+.ctl input[type=number]{width:72px}
+.ctls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+
+main.wrap{display:grid;gap:20px;padding-block:20px 48px}
+.cols{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+section.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.panel-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.panel-h h2{font-size:19px}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;background:var(--sea-soft);color:var(--sea)}
+.pill.warn{background:var(--brass-soft);color:var(--warn)}
+.pill.ok{color:var(--ok)}
+
+/* stats */
+.alloc{display:grid;gap:4px}
+.arow{display:grid;grid-template-columns:44px 1fr auto auto auto;align-items:center;gap:6px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.arow b{font-family:var(--f-mono);font-weight:500}
+.arow .base{color:var(--muted);font-size:12px}
+.arow .tot{font-family:var(--f-mono);font-size:16px;min-width:44px;text-align:right}
+.arow .bonus{color:var(--ok);font-size:12px;font-family:var(--f-mono);min-width:30px}
+.step{display:flex;gap:2px}
+.step button{width:28px;height:28px;border:1px solid var(--line);background:transparent;border-radius:var(--r);line-height:1}
+.step button:hover{border-color:var(--sea);color:var(--sea)}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+.derived{display:grid;grid-template-columns:1fr auto;gap:2px 12px;margin-top:14px}
+.derived dt{color:var(--muted)}
+.derived dd{margin:0;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.derived .grp{grid-column:1/-1;margin-top:10px;padding-bottom:2px;border-bottom:1px solid var(--line)}
+.extras{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.extras span{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+
+/* equipment */
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.slot{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:var(--r);padding:8px;background:transparent;text-align:left;width:100%}
+.slot:hover{border-color:var(--sea)}
+.slot.has-up{padding-right:64px}
+.slot .ico{width:40px;height:40px;border-radius:4px;background:var(--sea-soft);display:grid;place-items:center;overflow:hidden}
+.slot .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot .sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot .empty{color:var(--muted);font-style:italic;font-weight:400}
+.slot select{border:1px solid var(--line);border-radius:4px;background:var(--panel);padding:2px 4px;font-family:var(--f-mono);font-size:12px}
+.slot-wrap{position:relative}
+.slot-wrap .x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--panel);font-size:12px;line-height:1;color:var(--muted)}
+.icon{width:32px;height:32px;background-image:url(icons.webp);background-repeat:no-repeat;image-rendering:auto;flex:none}
+.ess{display:flex;gap:4px;margin-top:4px;padding-left:8px;flex-wrap:nowrap;align-items:center}
+.ess .elabel{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.es{width:36px;height:36px;border:1px dashed var(--line);border-radius:4px;background:transparent;padding:1px;display:grid;place-items:center;color:var(--muted);font-size:16px;line-height:1}
+.es.core{border-color:var(--brass)}
+.es.exb{width:auto;padding:0 8px;font-size:13px;margin-left:6px}
+.exrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.es.set{border-style:solid}
+.es:hover{border-color:var(--sea);color:var(--sea)}
+.wsets{grid-column:1/-1;display:grid;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.wsets-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.wtabs{display:flex;gap:4px}
+.wtabs .cls{padding:3px 10px;font-size:13px}
+.wrow{display:grid;grid-template-columns:28px repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+@media (max-width:560px){.wrow{grid-template-columns:22px minmax(0,1fr)}.wrow>.slot-wrap:last-child{grid-column:2}}
+.wrow.off{opacity:.55}
+.wnum{font-family:var(--f-display);font-size:18px;color:var(--brass);padding-top:16px;text-align:center}
+.g0{color:var(--g0)}.g1{color:var(--g1)}.g2{color:var(--g2)}.g3{color:var(--g3)}
+
+/* skill tree */
+.tree-layout{display:grid;grid-template-columns:minmax(0,470px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.tree-layout{grid-template-columns:minmax(0,1fr)}}
+.tree{position:relative;width:100%;max-width:448px;aspect-ratio:448/503;background-size:100% 100%;border-radius:var(--r);background-color:#20262a;margin-inline:auto}
+.sk{position:absolute;width:7.6%;aspect-ratio:1;border:2px solid transparent;border-radius:4px;background:transparent;padding:0;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.sk.off{background:rgba(10,14,18,.62)}
+.sk.can{border-color:rgba(98,179,201,.0)}
+.sk.lvl{border-color:#d9a75a}
+.sk.sel{outline:2px solid #fff;outline-offset:1px}
+.sk .b{position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);background:#0d1418;color:#e7d3ae;border:1px solid #5b4a2c;border-radius:3px;font:500 clamp(8px,2.2vw,10px)/1.25 var(--f-mono);padding:0 3px;white-space:nowrap}
+.sk.lvl .b{color:#ffd88f;border-color:#d9a75a}
+.detail{border:1px solid var(--line);border-radius:var(--r);padding:14px;min-height:200px}
+.detail h3{font-size:18px;color:var(--sea)}
+.detail p{margin:8px 0;max-width:65ch}
+.lvtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.lvtable th,.lvtable td{padding:3px 6px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--f-mono)}
+.lvtable th{font-family:var(--f-body);color:var(--muted);font-weight:700}
+.lvtable tr.cur td{background:var(--brass-soft)}
+.lvtable tr.locked td{color:var(--muted)}
+.tblwrap{overflow-x:auto;max-height:320px;overflow-y:auto}
+.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.btn{border:1px solid var(--line);background:transparent;border-radius:var(--r);padding:6px 12px;font-weight:600}
+.btn.primary{background:var(--sea);border-color:var(--sea);color:var(--panel)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.why{font-size:12px;color:var(--warn);margin-top:6px}
+.legend{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* picker */
+dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);color:var(--ink);padding:0;width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+dialog::backdrop{background:rgba(8,14,18,.55)}
+.pk{display:flex;flex-direction:column;max-height:calc(100vh - 50px)}
+.pk-h{padding:14px 16px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.pk-h .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pk-h input[type=search]{flex:1;min-width:160px;border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;background:var(--bg)}
+.pk-h label{font-size:13px;display:flex;gap:4px;align-items:center}
+.pk-list{overflow-y:auto;padding:6px}
+.it{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 8px;border-radius:4px;border:0;background:transparent;width:100%;text-align:left}
+.it:hover,.it:focus-visible{background:var(--sea-soft)}
+.it .nm{font-weight:700}
+.it .st{font-size:12px;color:var(--muted)}
+.it .lv{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-align:right}
+.pk-f{padding:10px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+
+/* builds */
+.builds{display:grid;gap:10px}
+.builds .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.builds input,.builds textarea{border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;background:var(--bg);min-width:0}
+.builds textarea{width:100%;font-family:var(--f-mono);font-size:12px;min-height:60px}
+.saved{display:flex;flex-wrap:wrap;gap:6px}
+.saved span{display:inline-flex;gap:4px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px}
+.saved button{border:0;background:transparent;padding:2px 6px;border-radius:999px}
+.saved button:hover{background:var(--sea-soft)}
+footer{font-size:12px;color:var(--muted);max-width:80ch}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:var(--r);font-weight:600;z-index:20}
+@media (prefers-reduced-motion:no-preference){.sk,.slot,.btn{transition:border-color .15s,background-color .15s}}
+.buffs{display:flex;flex-direction:column;gap:4px}
+.brow{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--r)}
+.brow.on{border-color:var(--ok)}
+.brow label{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.brow select{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg);color:inherit}
+.brow .bfx{grid-column:1/-1;color:var(--muted);font-size:12px}
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand"><h1>Florensia Build Planner</h1><small>Stats, équipement et arbre de skills</small></div>
+    <div class="classes" role="group" aria-label="Classe" id="classes"></div>
+    <div class="ctls">
+      <div class="ctl"><span class="label">Job (niv. 40)</span><select id="job"></select></div>
+      <div class="ctl"><span class="label">Niv. terre</span><input id="lvLand" type="number" min="1" max="120" value="60"></div>
+      <div class="ctl"><span class="label">Niv. mer</span><input id="lvSea" type="number" min="1" max="99" value="40"></div>
+      <div class="ctl"><span class="label">Sexe</span><select id="gender"><option value="Male">Homme</option><option value="Female">Femme</option></select></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="cols">
+    <section class="panel" aria-labelledby="h-stats">
+      <div class="panel-h"><h2 id="h-stats">Statistiques</h2><span style="display:flex;gap:6px;align-items:center"><span class="pill" id="ptsLeft"></span><button class="btn" id="ptsReset" type="button" title="Remettre tous les points répartis à 0">Remettre à 0</button></span></div>
+      <div class="alloc" id="alloc"></div>
+      <p class="hint">Clic : ±1 · Maj+clic : ±10. Points : 3 par niveau terre + 1 par niveau mer au-delà du 1.</p>
+      <dl class="derived" id="derived"></dl>
+      <div class="extras" id="extras"></div>
+      <h3 class="label" style="margin:14px 0 6px">Buffs</h3>
+      <p class="hint" style="margin:0 0 6px">Buffs de groupe : reçus de n'importe quelle classe. Buffs personnels : seulement ceux de ta classe et de ton job. Bonus fixes, comme en jeu.</p>
+      <div class="buffs" id="buffs"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-eq">
+      <div class="panel-h"><h2 id="h-eq">Équipement</h2><span class="label">Choisir un emplacement pour ouvrir la liste · ◆ slot core (core ou méta), + slot méta</span></div>
+      <div class="slots" id="slots"></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-sk">
+    <div class="panel-h"><h2 id="h-sk">Arbre de skills</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill" id="skLeft"></span><button class="btn" id="skReset" type="button">Réinitialiser l'arbre</button></div></div>
+    <div class="tree-layout">
+      <div>
+        <div class="tree" id="tree"></div>
+        <p class="legend">Clic : +1 · clic droit : −1 · double-clic : niveau max possible. Les skills grisés sont verrouillés (niveau, prérequis ou job).</p>
+      </div>
+      <div class="detail" id="detail"></div>
+    </div>
+  </section>
+
+  <section class="panel builds" aria-labelledby="h-b">
+    <div class="panel-h"><h2 id="h-b">Mes builds</h2><span class="label">Enregistrés dans ce navigateur</span></div>
+    <div class="row"><input id="bName" placeholder="Nom du build (ex. Sniper PvE 95)" style="flex:1"><button class="btn primary" id="bSave" type="button">Enregistrer</button><button class="btn" id="bNew" type="button">Nouveau build</button></div>
+    <div class="saved" id="saved"></div>
+    <div class="row"><button class="btn" id="bExport" type="button">Copier le code du build</button><span class="label">ou coller un code pour l'importer</span></div>
+    <textarea id="bCode" placeholder="Code de build" aria-label="Code de build"></textarea>
+    <div class="row"><button class="btn" id="bImport" type="button">Importer le code</button></div>
+  </section>
+
+  <footer>
+    <p><b>Outil de fan non officiel.</b> Florensia, ses noms, données et icônes appartiennent à leurs propriétaires respectifs. Ce site n'est pas lié à l'éditeur du jeu.</p>
+    <p>Formules de stats, arbres de compétences et extraction des données basés sur <a href="https://github.com/HealYouDown/flandria" target="_blank" rel="noopener">Flandria</a> par HealYouDown, sous licence <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0</a>. Ce builder est distribué sous la même licence ; son code source est cette page elle-même. Données du patch du 16/10/2026.</p>
+    <p>Calcul : les bonus en % s'appliquent à la base du personnage (classe, niveau, stats), plus les dégâts de base de l'arme pour l'attaque ; les bonus fixes (amélioration, essences, sceaux, sets, passifs, buffs) s'ajoutent ensuite. La défense en % s'applique après tous les bonus. L'attaque de base Mercenary est calée sur des fiches in-game de niveau 112 ; les autres classes peuvent être légèrement décalées.</p>
+  </footer>
+</main>
+
+<dialog id="picker"><div class="pk">
+  <div class="pk-h">
+    <div class="row" style="justify-content:space-between"><h3 id="pkTitle" style="font-size:18px"></h3><button class="btn" id="pkClose" type="button">Fermer</button></div>
+    <div class="row">
+      <input type="search" id="pkSearch" placeholder="Rechercher un objet ou un bonus (ex. HP, Ancient)">
+      <select id="pkType" aria-label="Type d'arme" hidden></select>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="pkUsable" checked> Utilisable par ce personnage</label>
+      <label><input type="checkbox" id="pkBonus"> Avec bonus seulement</label>
+      <select id="pkSort" aria-label="Tri"><option value="lvd">Niveau décroissant</option><option value="lva">Niveau croissant</option><option value="name">Nom</option></select>
+    </div>
+  </div>
+  <div class="pk-list" id="pkList"></div>
+  <div class="pk-f"><span id="pkCount"></span><button class="btn" id="pkClear" type="button">Retirer l'objet</button></div>
+</div></dialog>
+<dialog id="exDlg"><div class="pk">
+  <div class="pk-h">
+    <div class="row" style="justify-content:space-between"><h3 id="exTitle" style="font-size:18px"></h3><button class="btn" id="exClose" type="button">Fermer</button></div>
+    <p class="hint" style="margin:0">Sceaux de l'objet : 0 à 5. Jamais sur les bijoux cash, les boucliers ni les objets craftables (sauf objets Realm niv. 101 à 105). Options et plages tirées des tables du jeu selon le niveau de l'objet.</p>
+  </div>
+  <div class="pk-list" id="exList" style="padding:12px 16px"></div>
+  <div class="pk-f" style="flex-wrap:wrap"><select id="exCode" aria-label="Bonus"></select><input id="exVal" type="number" step="any" placeholder="Valeur" aria-label="Valeur" style="width:90px;border:1px solid var(--line);border-radius:var(--r);padding:5px 8px;background:var(--bg)"><input type="checkbox" id="exPct" hidden><button class="btn primary" id="exAdd" type="button">Ajouter</button></div>
+</div></dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const CLASSES={
+  explorer:{name:"Explorer",jobs:["Excavator","Sniper"],base:{str:19,dex:18,con:16,int:13,wis:10,vol:17,luc:10}},
+  mercenary:{name:"Mercenary",jobs:["Gladiator","Guardian Swordsman"],base:{str:21,dex:15,con:22,int:8,wis:10,vol:17,luc:10}},
+  noble:{name:"Noble",jobs:["Court Magician","Magic Knight"],base:{str:11,dex:16,con:12,int:21,wis:19,vol:14,luc:10}},
+  saint:{name:"Saint",jobs:["Priest","Shaman"],base:{str:14,dex:14,con:14,int:16,wis:19,vol:16,luc:10}},
+};
+const STATS=[["str","STR","Force"],["dex","DEX","Dextérité"],["con","CON","Constitution"],["int","INT","Intelligence"],["wis","WIS","Sagesse"],["vol","VOL","Volonté"],["luc","LUC","Chance"]];
+const STAT_CODE={155:"con",156:"str",157:"int",158:"dex",159:"wis",160:"vol",161:"luc"};
+const EFFECT={0:"HP max",1:"MP max",2:"Régén. HP",3:"Régén. MP",4:"Esquive",5:"Vitesse de déplacement",6:"Att. mêlée max",7:"Att. mêlée min",8:"Att. distance max",9:"Att. distance min",10:"Att. magique max",11:"Att. magique min",12:"Déf. physique",13:"Déf. magique",14:"Préc. mêlée",15:"Préc. distance",16:"Préc. magique",17:"Vit. att. mêlée",18:"Vit. att. distance",19:"Vit. att. magique",20:"Portée mêlée",21:"Portée distance",22:"Portée magique",23:"Crit. mêlée",24:"Crit. distance",25:"Crit. magique",43:"Attaque navale",69:"Soins reçus",113:"EXP terre",114:"EXP mer",126:"Toutes stats",129:"Toutes attaques",130:"Toutes défenses",131:"Vitesse d'attaque",155:"CON",156:"STR",157:"INT",158:"DEX",159:"WIS",160:"VOL",161:"LUC",173:"Précision"};
+const SLOTS=[
+  ["weapon","Arme I","weapon",true],["shield","Bouclier I","shield",false],["weapon2","Arme II","weapon",true],["shield2","Bouclier II","shield",false],["weapon3","Arme III","weapon",true],["shield3","Bouclier III","shield",false],["coat","Torse","coat",true],["pants","Jambes","pants",true],
+  ["gauntlet","Gants","gauntlet",true],["shoes","Bottes","shoes",true],["hat","Chapeau","hat",false],["dress","Dress","dress",false],
+  ["necklace","Collier","necklace",false],["earring","Boucles d'oreilles","earring",false],["ring1","Anneau 1","ring",false],["ring2","Anneau 2","ring",false]];
+const WTYPE={one_handed_sword:"Épée 1 main",two_handed_sword:"Épée 2 mains",dagger:"Dague",rapier:"Rapière",cariad:"Cariad",rifle:"Fusil",duals:"Pistolets doubles"};
+const WSKILL={"One-handed Sword":"Épée 1 main","Two-handed Sword":"Épée 2 mains","Dagger":"Dague","Rapier":"Rapière","Cariad":"Cariad","Rifle":"Fusil","Duals":"Pistolets doubles","Shield":"Bouclier","Fishing Rod":"Canne à pêche","All":"Toutes"};
+const RANGED=new Set(["rifle","duals"]);
+const NO_SHIELD=new Set(["two_handed_sword","rifle","duals"]);
+const GRADE=["Normal","Rare","Unique","Légendaire"];
+const WSETS=[["weapon","shield"],["weapon2","shield2"],["weapon3","shield3"]]; // 3 weapon sets, only the active one counts
+const setOf=key=>WSETS.findIndex(p=>p.includes(key));
+const isActive=key=>{const i=setOf(key);return i<0||i===(S.ws||1)-1};
+const ES_SLOTS=4;
+// Set bonus tiers are not in the data: first bonus at 2 pieces, last at the full set, the ones between at full-1, full-2…
+// (matches the in-game Steam Armor Set: [2] [4] [5]).
+function setTiers(st){const k=st.b.length,n=st.c;if(k===1)return [n];return st.b.map((_,i)=>i===0?2:i===k-1?n:Math.max(2,n-(k-1-i)))} // weapon and armor: 2 core slots (take core or meta) + 2 meta-only slots
+const esTypeOk=(e,kind)=>e.t==="ALL"||(kind==="weapon"?e.t==="WEAPONS":e.t==="ARMOR");
+const esList=key=>{const a=(S.es&&S.es[key])||[];return Array.from({length:ES_SLOTS},(_,i)=>a[i]??null)};
+function esUsable(e,key,pos){
+  const kind=SLOTS.find(s=>s[0]===key)[2],it=itemFrom(kind,S.eq[key]);
+  if(!it||!esTypeOk(e,kind))return false;
+  if(e.k&&pos>=2)return false;
+  if(e.l>(it.l||0))return false;
+  return true;
+}
+
+let D=null;
+const fresh=()=>({cls:"explorer",job:"",land:60,sea:40,gender:"Male",pts:{str:0,dex:0,con:0,int:0,wis:0,vol:0,luc:0},eq:{},up:{},es:{},ex:{},sk:{},bf:{},ws:1});
+let S=fresh();
+let selSkill=null;
+
+const $=id=>document.getElementById(id);
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2200)}
+const iconStyle=i=>`background-position:-${(i%48)*32}px -${Math.floor(i/48)*32}px`;
+const fmtB=b=>{const n=EFFECT[b[0]]||("Effet "+b[0]);if(b[1]==="*")return `${n} ${b[2]>=0?"+":""}${+(b[2]*100).toFixed(1)}%`;return `${n} ${b[2]>=0?"+":""}${+b[2].toFixed(1)}`};
+
+const esc=t=>String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const fmtDesc=t=>esc(t).replace(/\\n|\n/g,"<br>");
+const fmtDur=v=>v>=3600?(v/3600).toFixed(v%3600?1:0)+" h":v>=60?(v/60).toFixed(v%60?1:0)+" min":v+" s";
+/* ---------- formulas (Flandria planner) ---------- */
+const P=Math.pow;
+const pw=(x,e)=>x>0?P(x,e):-P(-x,e);
+function base(c,L,t){
+  const F={
+    mercenary:{hp:P(L*13,1.2)+pw((t.con-13)*13,1.2)-50,mp:P(L*10,1.2)+pw((t.wis-6)*10,1.2)+60,
+      mel:P(L,1.1)+pw((t.str-10)*1.5,1.1)-10,rng:P(L,1.1)+pw((t.str-10)*1.4,1.1)-10,mag:P(L,1.1)+pw((t.int-5)*1.4,1.1),
+      hm:P(L*1.5,1.1)+pw((t.dex-12)*1.5,1.1)+40,hr:P(L*1.5,1.1)+pw((t.dex-12)*1.5,1.1)+40,hg:P(L*1.5,1.1)+pw((t.dex-12)*1.5,1.1)+40,
+      cr:P(L,1.1)+pw((t.vol-9)*3,1.1),av:P(L,1.1)+pw((t.dex-12)*.5,1.1)+6},
+    explorer:{hp:P(L*12,1.2)+pw((t.con-9)*13,1.2)+20,mp:P(L*10,1.2)+pw((t.wis-6)*10,1.2)+60,
+      mel:P(L,1.1)+pw((t.str-9)*1.4,1.1)-11,rng:P(L,1.1)+pw((t.str-9)*1.5,1.1)-11,mag:P(L,1.1)+pw((t.int-5)*1.4,1.1)-5,
+      hm:P(L*1.6,1.1)+pw((t.dex-12)*1.5,1.1)+45,hr:P(L*1.6,1.1)+pw((t.dex-12)*1.6,1.1)+45,hg:P(L*1.6,1.1)+pw((t.dex-13)*1.5,1.1)+40,
+      cr:P(L,1.1)+pw((t.vol-10)*3,1.1),av:P(L*1.2,1.1)+pw((t.dex-10)*.6,1.1)+2},
+    noble:{hp:P(L*12,1.2)+pw((t.con-4)*10,1.2)+40,mp:P(L*11,1.2)+pw((t.wis-13)*12,1.2)+60,
+      mel:P(L,1.1)+pw((t.str-6)*1.4,1.1)+pw((t.int-12)*.8,1.1)-10,rng:P(L,1.1)+pw((t.str-6)*1.4,1.1)+pw((t.int-12)*.8,1.1)-10,mag:P(L,1.1)+pw((t.int-12)*1.6,1.1)-8,
+      hm:P(L*2,1.1)+pw((t.dex-9)*2.2,1.1)+30,hr:P(L*2,1.1)+pw((t.dex-9)*2.2,1.1)+30,hg:P(L*1.5,1.1)+pw((t.dex-14)*2.2,1.1)+pw(t.int-14,1.1)+40,
+      cr:P(L,1.1)+pw((t.vol-8)*3,1.1),av:P(L*1.2,1.1)+pw(t.dex-10,1.1)+3},
+    saint:{hp:P(L*12,1.2)+pw((t.con-6)*11,1.2)+20,mp:P(L*11,1.2)+pw((t.wis-13)*12,1.2)+60,
+      mel:P(L,1.1)+pw((t.str-6)*1.4,1.1)+pw((t.int-12)*.8,1.1)-8,rng:P(L,1.1)+pw((t.str-6)*1.4,1.1)+pw((t.int-12)*.8,1.1)-8,mag:P(L,1.1)+pw((t.int-11)*1.6,1.1),
+      hm:P(L*2,1.1)+pw((t.dex-9)*2.2,1.1)+35,hr:P(L*2,1.1)+pw((t.dex-9)*2.2,1.1)+35,hg:P(L*1.5,1.1)+pw((t.dex-12)*2.2,1.1)+pw(t.int-12,1.1)+45,
+      cr:P(L,1.1)+pw((t.vol-10)*3,1.1),av:P(L*1.2,1.1)+pw(t.dex-10,1.1)+3}};
+  return F[c];
+}
+
+/* ---------- rules ---------- */
+const job=()=>S.land>=40?S.job:"";
+const pointsTotal=()=>S.land*3+(S.sea-1);
+const pointsUsed=()=>Object.values(S.pts).reduce((a,b)=>a+b,0);
+function canUse(it){
+  const cn=CLASSES[S.cls].name;
+  if(it.c.length&&!it.c.includes(cn)&&!(job()&&it.c.includes(job())))return false;
+  if((it.l||0)>S.land)return false;
+  if(it.s&&!it.s.includes(S.gender))return false;
+  return true;
+}
+// unequip items the current class / job / level / gender can no longer use
+function pruneEquip(){
+  const gone=[];
+  for(const [key,,kind] of SLOTS){const it=itemFrom(kind,S.eq[key]);if(it&&!canUse(it)){gone.push(it.n);delete S.eq[key];delete S.up[key];if(S.es)delete S.es[key]}}
+  if(gone.length)toast(`Retiré (non utilisable) : ${gone.join(", ")}`);
+}
+function equipped(){const o={};for(const [k] of SLOTS){const it=S.eq[k];if(it)o[k]=it;}return o;}
+function itemFrom(slotKind,idx){return idx==null?null:D.items[slotKind][idx]}
+
+const MASTERY={"one-handed sword":"one_handed_sword","two-handed sword":"two_handed_sword","rifle":"rifle","dual guns":"duals"};
+const PASSIVES=[[/max\. HP by (\d+)/,[0]],[/own MP by (\d+)/,[1]],[/melee accuracy by (\d+)/,[14]],[/magic accuracy by (\d+)/,[16]],[/accuracy by (\d+) and the max range/,[15]],
+  [/chances of a critical hit by (\d+)/,[23]],[/magic critical chance by (\d+)/,[25]],[/avoidance rate by (\d+)/,[4]],[/Increases your physical defence by (\d+)/,[12]],
+  [/wearing a shield, physical defence is increased by (\d+)/,[12],sh=>sh],[/maximum magic damage by (\d+)/,[10]]];
+function compute(){
+  const c=CLASSES[S.cls],L=S.land;
+  const add={},mul={},stb={str:0,dex:0,con:0,int:0,wis:0,vol:0,luc:0};
+  let wpn=null,pd=0,md=0;const setCount={};
+  const push=b=>{const [code,op,v]=b;
+    if(STAT_CODE[code]){stb[STAT_CODE[code]]+=v;return}
+    if(code===126){for(const k in stb)stb[k]+=v;return}
+    if(code===173){for(const k of [14,15,16])push([k,op,v]);return} // "Hit": all accuracies
+    if(op==="*")mul[code]=(mul[code]||0)+v;else add[code]=(add[code]||0)+v;};
+  for(const [key,,kind,upg] of SLOTS){
+    if(!isActive(key))continue;
+    const it=itemFrom(kind,S.eq[key]);if(!it)continue;
+    it.b.forEach(push);
+    if(kind==="weapon")wpn=it;
+    if(it.pd!=null){pd+=it.pd;md+=it.md}
+    const lv=S.up[key]||0;
+    if(upg&&it.u&&D.upgrades[it.u]&&lv>0){(D.upgrades[it.u][lv]||[]).forEach(push)}
+    if(upg)for(const ei of esList(key))if(ei!=null&&D.essences[ei])D.essences[ei].b.forEach(push);
+    if(S.ex&&S.ex[key]&&sealType(kind,it))S.ex[key].filter(b=>b[3]==="s").forEach(b=>push(b.slice(0,3)));
+    if(it.st!=null)setCount[it.st]=(setCount[it.st]||0)+1;
+  }
+  const sets=[];
+  for(const [si,n] of Object.entries(setCount)){const st=D.sets[si];if(!st)continue;const tr=setTiers(st);st.b.forEach((b,i)=>{if(n>=tr[i])push(b)});sets.push({st,n,tr})}
+  // passive skills: flat bonuses read from the description of the learned level
+  const buffs=[];for(const b of BUFFS){const lv=(S.bf||{})[b.id];if(!lv||!buffOk(b))continue;const fx=buffFx(b,Math.min(lv,buffMax(b)));fx.forEach(push);buffs.push({b,fx})}
+  const passives=[];
+  let mast=0;
+  const shieldOn=SLOTS.some(([k,,kind])=>kind==="shield"&&isActive(k)&&itemFrom(kind,S.eq[k]));
+  for(const [k,lv] of Object.entries(S.sk||{})){const sk=skills()[k];if(!sk||!lv||!sk.lv[lv-1])continue;
+    const d=sk.lv[lv-1][7]||"";if(/Toggle|for \d+ (minutes|seconds)/.test(d))continue;
+    {const m=d.match(/wearing (?:a )?(one-handed sword|two-handed sword|rifle|Dual Guns)[^\d]*by (\d+)/i);if(m&&wpn&&MASTERY[m[1].toLowerCase()]===wpn.t){mast+=+m[2];passives.push(sk.n+" "+lv+" : attaque +"+m[2])}}
+    for(const [re,codes,cond] of PASSIVES){const m=d.match(re);if(m&&(!cond||cond(shieldOn))){codes.forEach(c=>push([c,"+",+m[1]]));passives.push(sk.n+" "+lv+" : "+fmtB([codes[0],"+",+m[1]]))}}}
+  const t={};for(const [k] of STATS)t[k]=c.base[k]+(S.pts[k]||0)+stb[k];
+  const b=base(S.cls,L,t);
+  // % bonuses apply to the unmodified value: class base + stat points only (no item/essence/set stat bonuses),
+  // plus the weapon's own base damage (no upgrade); flat bonuses are added on top. Checked against an in-game
+  // Gladiator 112 with Brave Cheongsam [Red]. Defense is the exception, see pd/md.
+  const tr={};for(const [k] of STATS)tr[k]=c.base[k]+(S.pts[k]||0);
+  const br=base(S.cls,L,tr);
+  const A=code=>add[code]||0;
+  const P=(...codes)=>codes.reduce((a,k)=>a+(mul[k]||0),0);
+  const ATK=[6,7,8,9,10,11];
+  const V=(full,raw,flat,...pc)=>full+flat+raw*P(...pc,...(pc.some(k=>ATK.includes(k))?[129]:[]));
+  const wp=wpn?wpn.pa:[0,0],wm=wpn?wpn.ma:[0,0];
+  const melee=!wpn||!RANGED.has(wpn.t);
+  const r=v=>Math.floor(v);
+  const mw=i=>melee?wp[i]:0,rw=i=>!melee?wp[i]:0;
+  // Mercenary melee base calibrated on in-game sheets (lvl 112): barehanded +29.2; with a weapon +171.5 min / +227.5 max, +0.36 per STR above 21, plus weapon mastery
+  const cal=S.cls==="mercenary"&&melee?(wpn?[171.5,227.5]:[29.2,29.2]).map(x=>x+0.36*(t.str-21)+mast):[0,0];
+  const out={
+    hp:r(V(b.hp,b.hp,A(0),0)),mp:r(V(b.mp,b.mp,A(1),1)),
+    melMin:r(V(b.mel+mw(0),b.mel+mw(0),A(7)+A(129)+cal[0],7)),melMax:r(V(b.mel+mw(1),b.mel+mw(1),A(6)+A(129)+cal[1],6)),
+    rngMin:r(V(b.rng+rw(0),b.rng+rw(0),A(9)+A(129),9)),rngMax:r(V(b.rng+rw(1),b.rng+rw(1),A(8)+A(129),8)),
+    magMin:r(V(b.mag+wm[0],b.mag+wm[0],A(11)+A(129),11)),magMax:r(V(b.mag+wm[1],b.mag+wm[1],A(10)+A(129),10)),
+    hm:r(V(b.hm,b.hm,A(14),14)),hr:r(V(b.hr,b.hr,A(15),15)),hg:r(V(b.hg,b.hg,A(16),16)),
+    cm:r(V(b.cr,b.cr,A(23),23)),crg:r(V(b.cr,b.cr,A(24),24)),cg:r(V(b.cr,b.cr,A(25),25)),
+    av:r(V(b.av,b.av,A(4),4)),pd:r((pd+A(12)+A(130))*(1+P(12,130))),md:r((md+A(13)+A(130))*(1+P(13,130))), // defense: % after all bonuses
+    speed:wpn?wpn.sp/(1+(mul[131]||0)+(mul[wpn.t==="rifle"?18:wpn.t==="cariad"?19:17]||0)):null,range:wpn?wpn.rg:null,
+  };
+  const extras=[];
+  for(const code of [2,3,5,17,18,19,20,21,22,69,113,114,131,43]){
+    if(add[code])extras.push(fmtB([code,"+",add[code]]));
+    if(mul[code])extras.push(fmtB([code,"*",mul[code]]));
+  }
+  return {t,stb,out,extras,sets,passives,buffs};
+}
+
+/* ---------- render: header ---------- */
+function renderHeader(){
+  $("classes").innerHTML=Object.entries(CLASSES).map(([k,c])=>`<button type="button" class="cls" data-c="${k}" aria-pressed="${S.cls===k}">${c.name}</button>`).join("");
+  const j=$("job");
+  j.innerHTML=`<option value="">${S.land<40?"Disponible au niv. 40":"Aucun"}</option>`+CLASSES[S.cls].jobs.map(n=>`<option ${S.job===n?"selected":""}>${n}</option>`).join("");
+  j.disabled=S.land<40; if(S.land<40)j.value="";
+  $("lvLand").value=S.land;$("lvSea").value=S.sea;$("gender").value=S.gender;
+}
+
+/* ---------- render: stats ---------- */
+function renderStats(){
+  const {t,stb,out,extras,sets,passives}=compute();
+  const left=pointsTotal()-pointsUsed();
+  const pl=$("ptsLeft");pl.textContent=`${left} point${Math.abs(left)>1?"s":""} libre${Math.abs(left)>1?"s":""}`;pl.className="pill"+(left<0?" warn":"");
+  $("alloc").innerHTML=STATS.map(([k,ab,full])=>`<div class="arow" title="${full}"><b>${ab}</b><span class="base" title="Base de la classe et points répartis à la main">base ${CLASSES[S.cls].base[k]} · points +${S.pts[k]||0}</span><span class="bonus" title="Bonus de l'équipement : objets, essences, sceaux, sets">${stb[k]?"bonus +"+stb[k]:""}</span><span class="tot">${t[k]}</span>${k==="luc"?"<span class=\"step\"></span>":`<span class="step"><button type="button" data-s="${k}" data-d="-1" aria-label="Retirer en ${full}">−</button><button type="button" data-s="${k}" data-d="1" aria-label="Ajouter en ${full}">+</button></span>`}</div>`).join("");
+  const row=(l,v)=>`<dt>${l}</dt><dd>${v}</dd>`;
+  $("derived").innerHTML=
+    `<div class="grp label">Vitalité</div>`+row("HP",out.hp)+row("MP",out.mp)+
+    `<div class="grp label">Mêlée</div>`+row("Attaque",`${out.melMin} ~ ${out.melMax}`)+row("Précision",out.hm)+row("Critique",out.cm)+
+    `<div class="grp label">Distance</div>`+row("Attaque",`${out.rngMin} ~ ${out.rngMax}`)+row("Précision",out.hr)+row("Critique",out.crg)+
+    `<div class="grp label">Magie</div>`+row("Attaque",`${out.magMin} ~ ${out.magMax}`)+row("Précision",out.hg)+row("Critique",out.cg)+
+    `<div class="grp label">Défense</div>`+row("Déf. physique",out.pd)+row("Déf. magique",out.md)+row("Esquive",out.av)+
+    (out.speed?`<div class="grp label">Arme</div>`+row("Vitesse d'attaque",(out.speed/1000).toFixed(2)+" s")+row("Portée",((110+out.range)/100).toFixed(1)+" m"):"");
+  $("extras").innerHTML=extras.map(e=>`<span>${e}</span>`).join("")+sets.map(({st,n,tr})=>`<span style="${n>=tr[0]?"border-color:var(--ok)":""}">Set ${esc(st.n)} ${Math.min(n,st.c)}/${st.c} : ${st.b.map((b,i)=>`<b style="font-weight:600;color:${n>=tr[i]?"var(--ok)":"var(--muted)"}">[${tr[i]}] ${fmtB(b)}</b>`).join(" ")}</span>`).join("")+(passives.length?`<span>Passifs : ${passives.map(esc).join(" · ")}</span>`:"");
+  renderBuffs();
+}
+function renderBuffs(){S.bf=S.bf||{};
+  const list=BUFFS.filter(b=>(!b.sk||buffSkill(b))&&buffOk(b));
+  $("buffs").innerHTML=list.map(b=>{const lv=S.bf[b.id]||0,max=buffMax(b),on=lv>0;const cur=on?Math.min(lv,max):max;
+    const fx=buffFx(b,cur).map(fmtB).join(", ");const who=b.pet?"esprit":b.share?"groupe":"perso";
+    return `<div class="brow${on?" on":""}"><label><input type="checkbox" data-bf="${b.id}"${on?" checked":""}> ${esc(buffName(b))} <span class="label">${who}${b.cls&&b.share?" · "+CLASSES[b.cls].name:""}</span></label>${max>1?`<select data-bflv="${b.id}" aria-label="Niveau de ${esc(buffName(b))}">${Array.from({length:max},(_,i)=>`<option value="${i+1}"${i+1===cur?" selected":""}>${b.tiers?["I","II","III","IV","V"][i]:"niv. "+(i+1)}</option>`).join("")}</select>`:""}<span class="bfx">${esc(fx)}</span></div>`}).join("");
+}
+$("buffs").addEventListener("change",e=>{const t=e.target;S.bf=S.bf||{};
+  if(t.dataset.bf){const b=BUFFS.find(x=>x.id===t.dataset.bf);S.bf[b.id]=t.checked?(+(document.querySelector(`[data-bflv="${b.id}"]`)?.value)||buffMax(b)):0}
+  else if(t.dataset.bflv){const id=t.dataset.bflv;if(S.bf[id])S.bf[id]=+t.value;else S.bf[id]=+t.value}
+  renderAll();store.set("fl-current",encode())});
+
+/* ---------- render: equipment ---------- */
+function renderSlots(){
+  const slotHtml=([key,label,kind,upg])=>{
+    const it=itemFrom(kind,S.eq[key]);
+    const si=setOf(key),wpn=si>=0?itemFrom("weapon",S.eq[WSETS[si][0]]):null;
+    const blocked=kind==="shield"&&wpn&&NO_SHIELD.has(wpn.t);
+    const bad=it&&!canUse(it);
+    let sub=label;
+    if(it){const parts=[];if(it.t)parts.push(WTYPE[it.t]);parts.push("niv. "+(it.l||0));const lv=S.up[key]||0;const ub=upg&&it.u&&lv>0&&D.upgrades[it.u]?(D.upgrades[it.u][lv]||[]):[];if(ub.length)parts.push("+"+lv+" : "+ub.map(fmtB).join(", "));else if(it.b.length)parts.push(it.b.slice(0,2).map(fmtB).join(", "));sub=parts.join(" · ")}
+    const up=upg&&it&&it.u?`<select data-up="${key}" aria-label="Amélioration ${label}">${Array.from({length:D.upgrades[it.u]?D.upgrades[it.u].length:16},(_,i)=>`<option value="${i}" ${(S.up[key]||0)===i?"selected":""}>+${i}</option>`).join("")}</select>`:"";
+    return `<div class="slot-wrap"><button type="button" class="slot${up?" has-up":""}" data-slot="${key}" ${blocked?"disabled title='Arme à deux mains équipée'":""}>
+      <span class="ico">${it?`<span class="icon" style="${iconStyle(it.i)}"></span>`:`<span class="label" style="font-size:9px">${label.slice(0,4)}</span>`}</span>
+      <span style="min-width:0"><span class="label">${label}${bad?' · <span style="color:var(--warn)">non utilisable</span>':""}</span><div class="nm ${it?"g"+(it.g||0):"empty"}">${it?it.n:(blocked?"Bloqué par l'arme":"Vide")}</div><div class="sub">${it?sub:"&nbsp;"}</div></span>
+      <span></span></button>${up?`<span style="position:absolute;right:8px;top:30px;transform:translateY(-50%)">${up}</span>`:""}${upg&&it?`<div class="ess"><span class="elabel">Essences</span>${esList(key).map((ei,pos)=>{const e=ei!=null?D.essences[ei]:null;const lbl=(pos<2?"Slot core "+(pos+1):"Slot méta "+(pos-1))+(e?" : "+e.n+" ("+e.b.map(fmtB).join(", ")+")":", vide");return `<button type="button" class="es${pos<2?" core":""}${e?" set":""}" data-es="${key}:${pos}" title="${lbl.replace(/"/g,"&quot;")}" aria-label="${lbl.replace(/"/g,"&quot;")}">${e?`<span class="icon" style="${iconStyle(e.i)}"></span>`:(pos<2?"◆":"+")}</button>`}).join("")}${sealType(kind,it)?`<button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="Sceaux et options" aria-label="Sceaux et options de ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button>`:""}</div>`:""}${!upg&&it&&sealType(kind,it)?`<div class="ess"><button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="Sceaux et options" aria-label="Sceaux et options de ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button></div>`:""}</div>`;
+  };
+  const ROM=["I","II","III"];
+  $("slots").innerHTML=`<div class="wsets"><div class="wsets-h"><span class="label">Sets d'armes · seul le set actif compte</span><div class="wtabs" role="group" aria-label="Set d'armes actif">${ROM.map((r,i)=>`<button type="button" class="cls" data-ws="${i+1}" aria-pressed="${(S.ws||1)===i+1}">Set ${r}</button>`).join("")}</div></div>`+
+    WSETS.map((pair,i)=>`<div class="wrow${(S.ws||1)===i+1?"":" off"}"><span class="wnum">${ROM[i]}</span>${pair.map(k=>slotHtml(SLOTS.find(x=>x[0]===k))).join("")}</div>`).join("")+`</div>`+
+    SLOTS.filter(x=>setOf(x[0])<0).map(slotHtml).join("");
+}
+
+/* ---------- picker ---------- */
+let pkSlot=null,pkEs=null;
+function openPicker(key){
+  pkSlot=key;pkEs=null;$("pkClear").textContent="Retirer l'objet";$("pkBonus").parentElement.hidden=false;$("pkSort").hidden=false;const [, label, kind]=SLOTS.find(s=>s[0]===key);
+  $("pkTitle").textContent=label;$("pkSearch").value="";
+  const ty=$("pkType");ty.hidden=kind!=="weapon";
+  if(kind==="weapon")ty.innerHTML=`<option value="">Toutes les armes</option>`+Object.entries(WTYPE).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+  renderPicker();$("picker").showModal();$("pkSearch").focus();
+}
+function openEss(key,pos){
+  pkSlot=key;pkEs=pos;const label=SLOTS.find(s=>s[0]===key)[1];
+  $("pkTitle").textContent=`${label} · ${pos<2?"slot core "+(pos+1)+" (core ou méta)":"slot méta "+(pos-1)}`;$("pkSearch").value="";
+  $("pkType").hidden=true;$("pkBonus").parentElement.hidden=true;$("pkSort").hidden=true;
+  $("pkClear").textContent="Retirer l'essence";
+  renderPicker();$("picker").showModal();$("pkSearch").focus();
+}
+function renderEssPicker(){
+  const q=$("pkSearch").value.trim().toLowerCase(),usable=$("pkUsable").checked,kind=SLOTS.find(s=>s[0]===pkSlot)[2];
+  const taken={};esList(pkSlot).forEach((v,i)=>{if(i!==pkEs&&v!=null&&D.essences[v]){const n=D.essences[v].n;taken[n]=(taken[n]||0)+1}});
+  const TY={ALL:"Arme ou armure",WEAPONS:"Arme",ARMOR:"Armure"};
+  let list=D.essences.map((e,i)=>({e,i})).filter(({e,i})=>{
+    if(e.k&&pkEs>=2)return false;
+    if(!esTypeOk(e,kind))return false;
+    if((taken[e.n]||0)>=2)return false; // max 2 of the same essence per piece
+    if(usable&&!esUsable(e,pkSlot,pkEs))return false;
+    if(q){const hay=(e.n+" "+e.b.map(fmtB).join(" ")).toLowerCase();if(!hay.includes(q))return false}
+    return true});
+  list.sort((a,b)=>b.e.l-a.e.l||a.e.n.localeCompare(b.e.n));
+  $("pkList").innerHTML=list.length?list.map(({e,i})=>`<button type="button" class="it" data-ei="${i}"><span class="icon" style="${iconStyle(e.i)}"></span><span style="min-width:0"><div class="nm g${e.g||0}">${e.n}</div><div class="st">${e.b.map(fmtB).join(", ")} · ${TY[e.t]}</div></span><span class="lv">équip. niv. ${e.l}+</span></button>`).join(""):`<p class="hint" style="padding:12px">Aucune essence ne correspond. Décochez « Utilisable par ce personnage » pour tout voir.</p>`;
+  $("pkCount").textContent=`${list.length} essence${list.length>1?"s":""}`;
+}
+function renderPicker(){
+  if(pkEs!=null)return renderEssPicker();
+  const [, , kind]=SLOTS.find(s=>s[0]===pkSlot);
+  const q=$("pkSearch").value.trim().toLowerCase(),usable=$("pkUsable").checked,onlyB=$("pkBonus").checked,ty=$("pkType").value,sort=$("pkSort").value;
+  let list=D.items[kind].map((it,i)=>({it,i})).filter(({it})=>{
+    if(usable&&!canUse(it))return false;
+    if(onlyB&&!it.b.length)return false;
+    if(kind==="weapon"&&ty&&it.t!==ty)return false;
+    if(q){const hay=(it.n+" "+it.b.map(fmtB).join(" ")).toLowerCase();if(!hay.includes(q))return false}
+    return true;});
+  list.sort(sort==="name"?(a,b)=>a.it.n.localeCompare(b.it.n):sort==="lva"?(a,b)=>(a.it.l||0)-(b.it.l||0):(a,b)=>(b.it.l||0)-(a.it.l||0));
+  const total=list.length;list=list.slice(0,300);
+  $("pkList").innerHTML=list.length?list.map(({it,i})=>{
+    const st=[];
+    if(it.pa)st.push(`Phys ${it.pa[0]}~${it.pa[1]} · Mag ${it.ma[0]}~${it.ma[1]} · ${WTYPE[it.t]}`);
+    if(it.pd!=null)st.push(`Déf ${it.pd} / ${it.md}`);
+    if(it.b.length)st.push(it.b.map(fmtB).join(", "));
+    if(it.c.length){const jobs=Object.values(CLASSES).flatMap(c=>c.jobs);st.push((it.c.every(c=>jobs.includes(c))?"Job requis : ":"Classes : ")+it.c.join(", "))}
+    if(it.st!=null&&D.sets[it.st])st.push("Set "+D.sets[it.st].n);
+    return `<button type="button" class="it" data-i="${i}"><span class="icon" style="${iconStyle(it.i)}"></span><span style="min-width:0"><div class="nm g${it.g||0}">${it.n}</div><div class="st">${st.join(" · ")||"Sans bonus"}</div></span><span class="lv">niv. ${it.l||0}${it.g?"<br>"+GRADE[it.g]:""}</span></button>`}).join(""):`<p class="hint" style="padding:12px">Aucun objet ne correspond. Décochez « Utilisable par ce personnage » pour tout voir.</p>`;
+  $("pkCount").textContent=total>300?`300 affichés sur ${total}, affinez la recherche`:`${total} objet${total>1?"s":""}`;
+}
+
+/* ---------- manual bonuses ---------- */
+let exKey=null;
+const SEALS={"t":{"coat":[0,1,2,3,6,8,10,12],"pants":[0,1,2,3,6,8,10,13],"gauntlet":[0,1,2,3,12,14,15,16],"shoes":[0,1,2,3,13,14,15,16],"necklace":[2,3,4,12,13,23,24,25],"ring":[2,3,4,12,13,23,24,25],"earring":[2,3,4,12,13,23,24,25],"dagger":[1,3,10,16,25],"one_handed_sword":[0,2,6,12,14],"two_handed_sword":[0,1,6,14,23],"rapier":[0,1,10,16,25],"cariad":[1,3,10,16,25],"duals":[0,1,8,15,24],"rifle":[0,1,8,15,24]},"r":{"0":["+",[[10.0,50.0],[51.0,100.0],[51.0,100.0],[101.0,150.0],[151.0,200.0],[151.0,200.0],[201.0,250.0],[251.0,300.0],[251.0,300.0],[301.0,350.0],[401.0,450.0],[450.0,500.0]]],"1":["+",[[10.0,50.0],[51.0,100.0],[51.0,100.0],[101.0,150.0],[151.0,200.0],[151.0,200.0],[201.0,250.0],[251.0,300.0],[251.0,300.0],[301.0,350.0],[401.0,450.0],[450.0,500.0]]],"2":["+",[[1.0,5.0],[6.0,10.0],[6.0,10.0],[11.0,15.0],[16.0,20.0],[16.0,20.0],[21.0,25.0],[26.0,30.0],[26.0,30.0],[31.0,35.0],[36.0,40.0],[36.0,45.0]]],"3":["+",[[1.0,5.0],[6.0,10.0],[6.0,10.0],[11.0,15.0],[16.0,20.0],[16.0,20.0],[21.0,25.0],[26.0,30.0],[26.0,30.0],[31.0,35.0],[36.0,40.0],[36.0,45.0]]],"6":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"8":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"10":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"12":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"13":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"14":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"15":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"16":["+",[[1.0,10.0],[6.0,15.0],[6.0,15.0],[11.0,20.0],[16.0,25.0],[16.0,25.0],[21.0,30.0],[26.0,35.0],[26.0,35.0],[31.0,40.0],[36.0,45.0],[40.0,50.0]]],"4":["+",[[1.0,5.0],[6.0,10.0],[6.0,10.0],[11.0,15.0],[16.0,20.0],[16.0,20.0],[21.0,25.0],[26.0,30.0],[26.0,30.0],[31.0,35.0],[36.0,40.0],[36.0,45.0]]],"23":["+",[[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[20.0,60.0]]],"24":["+",[[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[20.0,60.0]]],"25":["+",[[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[10.0,50.0],[20.0,60.0]]]}};
+const sealType=(kind,it)=>it&&!it.cs&&(!it.cr||(it.l>=101&&it.l<=105))?SEALS.t[kind==="weapon"?it.t:kind]:null; // no seals on cash/event or craftable items, except Realm items lvl 101-105; shields have no seal table (Mattéo)
+const sealRange=(c,it)=>{const r=SEALS.r[c];if(!r)return null;const row=Math.min(12,Math.max(1,Math.ceil((it.l||1)/10)));return [r[0],r[1][row-1]]};
+const EX_CODES=[155,156,157,158,159,160,126,0,1,2,3,6,7,8,9,10,11,129,12,13,130,173,14,15,16,23,24,25,4,17,18,19,131,5];
+function openEx(key){exKey=key;if(S.ex&&S.ex[key])S.ex[key]=S.ex[key].filter(b=>b[3]==="s");const [,label,kind]=SLOTS.find(s=>s[0]===key);const it=itemFrom(kind,S.eq[key]);$("exTitle").textContent="Sceaux et options · "+label;
+  const st=sealType(kind,it)||[];
+  const fmtR=(c)=>{const [op,[a,b]]=sealRange(c,it);return op==="*"?`${+(a*100).toFixed(1)}–${+(b*100).toFixed(1)} %`:`${a}–${b}`};
+  $("exCode").innerHTML=(st.length?`<optgroup label="Sceaux possibles (niv. ${it.l})">${st.map(c=>`<option value="s${c}">${EFFECT[c]||("Effet "+c)} (${fmtR(c)})</option>`).join("")}</optgroup>`:"");
+  $("exVal").value="";$("exPct").checked=false;exSync();renderEx();$("exDlg").showModal()}
+function exSync(){const v=$("exCode").value;const it=exItem();if(v[0]==="s"&&it){const [op,[a,b]]=sealRange(+v.slice(1),it);$("exPct").checked=op==="*";$("exPct").disabled=true;$("exVal").value=op==="*"?+(b*100).toFixed(2):b}else $("exPct").disabled=false}
+function exItem(){const [,,kind]=SLOTS.find(s=>s[0]===exKey);return itemFrom(kind,S.eq[exKey])}
+function renderEx(){const a=((S.ex&&S.ex[exKey])||[]).filter(b=>b[3]==="s");
+  $("exList").innerHTML=a.length?a.map((b,i)=>`<div class="exrow"><span>${b[3]==="s"?"Sceau : ":""}${fmtB(b)}</span><button type="button" class="btn" data-exdel="${i}" aria-label="Retirer">✕</button></div>`).join(""):`<p class="hint" style="margin:0">Aucun bonus ajouté.</p>`}
+/* ---------- buffs ---------- */
+// share: can be received from any class; otherwise only the caster's own class/job. fx: [regex, codes per capture group, op]
+const BUFFS=[
+  // spirit (pet) skills: tiers I..V, values from the pet_skill table
+  {id:"spirit",n:"Esprit : Spirit's Blessing",share:1,pet:1,tiers:[[[0,"+",200],[1,"+",100]],[[0,"+",555],[1,"+",225]],[[0,"+",1125],[1,"+",575]],[[0,"+",1910],[1,"+",1150]]]},
+  {id:"pshield",n:"Esprit : Shield",share:1,pet:1,tiers:[[[12,"+",20],[13,"+",20]],[[12,"+",40],[13,"+",40]],[[12,"+",60],[13,"+",60]],[[12,"+",80],[13,"+",80]],[[12,"+",100],[13,"+",100]]]},
+  {id:"pstrike",n:"Esprit : Increase Striking Power",share:1,pet:1,tiers:[[[129,"+",20]],[[129,"+",40]],[[129,"+",60]],[[129,"+",80]],[[129,"+",100]]]},
+  {id:"pspeed",n:"Esprit : Increase Moving Speed",share:1,pet:1,tiers:[[[5,"*",0.2]],[[5,"*",0.2]]]},
+  {id:"nature",cls:"saint",sk:"cp003600",share:1,fx:[[/defense by (\d+) and (\d+)/,[[12],[13]],"+"]]},
+  {id:"life",cls:"saint",sk:"cp009300",share:1,fx:[[/HP by (\d+)/,[[0]],"+"]]},
+  {id:"earth",cls:"saint",sk:"cp007800",share:1,fx:[[/defense by (\d+) as well as their attack power and maximum HP by (\d+) and (\d+)/,[[12],[129],[0]],"+"]]},
+  {id:"spiritual",cls:"saint",sk:"cp003800",share:1,fx:[[/accuracy by (\d+)/,[[16]],"+"]]},
+  {id:"windwalk",cls:"explorer",sk:"ck008100",share:1,fx:[[/by (\d+)%/,[[5]],"*"]]},
+  {id:"aerial",cls:"explorer",sk:"ck008600",share:1,fx:[[/avoidance rate[^\d]*by (\d+)/,[[4]],"+"]]},
+  {id:"hitchain",cls:"explorer",sk:"ck001300",fx:[[/by (\d+)/,[[14,15]],"+"]]},
+  {id:"wings",cls:"explorer",sk:"ck005600",fx:[[/by (\d+)%/,[[5]],"*"]]},
+  {id:"berserker",cls:"mercenary",sk:"ck004500",fx:[[/movement speed by (\d+)% and attack power by (\d+)/,[[5],null],"*"],[/attack power by (\d+)/,[[129]],"+"]]},
+  {id:"berserk",cls:"mercenary",sk:"ck000200",fx:[[/attack power by (\d+)/,[[6,7]],"+"],[/defense by (\d+)%/,[[-130]],"*"]]},
+  {id:"bloodfury",cls:"mercenary",sk:"ck007100",fx:[[/speed (\d+)%/,[[131,5]],"*"],[/attacking power by (\d+)/,[[129]],"+"]]},
+  {id:"absdef",cls:"mercenary",sk:"ck008900",fx:[[/defense by (\d+)/,[[12,13]],"+"],[/movement speed is decreased by (\d+)%/,[[-5]],"*"]]},
+  {id:"sword",cls:"noble",sk:"cp008700",fx:[[/magic damage by (\d+)/,[[10,11]],"+"]]},
+  {id:"mboost",cls:"noble",sk:"cp002700",fx:[[/MP by (\d+)/,[[1]],"+"]]},
+];
+const buffSkill=b=>b.sk?D.skills[b.cls][b.sk]:null;
+const buffName=b=>b.n||buffSkill(b).n;
+const buffMax=b=>b.tiers?b.tiers.length:buffSkill(b).lv.length;
+function buffOk(b){if(b.share)return true;const s=buffSkill(b);return b.cls===S.cls&&s&&(s.c.includes(CLASSES[S.cls].name)||s.c.includes(S.job))}
+function buffFx(b,lv){if(b.tiers)return b.tiers[lv-1]||[];const d=(buffSkill(b).lv[lv-1]||[])[7]||"";const out=[];
+  for(const [re,groups,op] of b.fx){const m=d.match(re);if(!m)continue;groups.forEach((codes,i)=>{if(!codes)return;const v=+m[i+1];codes.forEach(c=>out.push([Math.abs(c),op,(c<0?-1:1)*(op==="*"?v/100:v)]))})}
+  return out}
+/* ---------- skills ---------- */
+const skills=()=>D.skills[S.cls];
+const skPointsTotal=()=>S.land;
+const skPointsUsed=()=>Object.values(S.sk).reduce((a,b)=>a+b,0);
+function skLock(code){
+  const s=skills()[code],lv=S.sk[code]||0,cn=CLASSES[S.cls].name;
+  if(s.c.length&&!s.c.includes(cn)&&!(job()&&s.c.includes(job())))return `Réservé au job ${s.c.join(" / ")}`;
+  const miss=s.r.filter(r=>!(S.sk[r]>0)&&skills()[r]);
+  if(miss.length)return "Prérequis : "+miss.map(r=>skills()[r].n).join(", ");
+  if(lv>=s.lv.length)return "Niveau maximum atteint";
+  if(s.lv[lv][0]>S.land)return `Niveau ${lv+1} requiert le niveau ${s.lv[lv][0]}`;
+  if(skPointsUsed()>=skPointsTotal())return "Plus de points de skill";
+  return "";
+}
+function children(code){const out=[];for(const [k,s] of Object.entries(skills()))if(s.r.includes(code)){out.push(k,...children(k))}return out}
+function setSk(code,lv){
+  if(lv<=0){for(const k of [code,...children(code)])delete S.sk[k]}else S.sk[code]=lv;
+}
+function skInc(code,max){let n=0;while(!skLock(code)){S.sk[code]=(S.sk[code]||0)+1;n++;if(!max)break}return n}
+function skDec(code){const lv=S.sk[code]||0;if(lv>0)setSk(code,lv-1)}
+function pruneSkills(){
+  // drop levels that the current level / job no longer allows
+  let changed=true;
+  while(changed){changed=false;
+    for(const [k,s] of Object.entries(skills())){
+      let lv=S.sk[k]||0;if(!lv)continue;
+      const cn=CLASSES[S.cls].name;
+      const classOk=!s.c.length||s.c.includes(cn)||(job()&&s.c.includes(job()));
+      const reqOk=s.r.every(r=>!skills()[r]||S.sk[r]>0);
+      if(!classOk||!reqOk){setSk(k,0);changed=true;continue}
+      lv=Math.min(lv,s.lv.length);
+      while(lv>0&&s.lv[lv-1][0]>S.land)lv--;
+      if(lv!==S.sk[k]){setSk(k,lv);changed=true}
+    }}
+  while(skPointsUsed()>skPointsTotal()){const ks=Object.keys(S.sk);const k=ks[ks.length-1];setSk(k,S.sk[k]-1)}
+}
+function renderTree(){
+  const left=skPointsTotal()-skPointsUsed();
+  $("skLeft").textContent=`${left} point${left>1?"s":""} de skill libre${left>1?"s":""} · ${skPointsUsed()}/${skPointsTotal()}`;
+  const tr=$("tree");tr.style.backgroundImage=`url(tree-${S.cls}.png)`;
+  tr.innerHTML=Object.entries(skills()).map(([code,s])=>{
+    const lv=S.sk[code]||0,lock=skLock(code);
+    const cls=["sk",lv?"lvl":"",(!lv&&lock&&lock!=="Plus de points de skill")?"off":"",selSkill===code?"sel":""].join(" ");
+    return `<button type="button" class="${cls}" data-sk="${code}" style="left:${(s.x-2)/448*100}%;top:${(s.y-2)/503*100}%" aria-label="${s.n} niveau ${lv} sur ${s.lv.length}" title="${s.n}"><span class="b">${lv}/${s.lv.length}</span></button>`}).join("");
+  renderDetail();
+}
+function renderDetail(){
+  const el=$("detail");
+  if(!selSkill||!skills()[selSkill]){el.innerHTML=`<h3>Choisissez un skill</h3><p>Touchez une icône de l'arbre pour voir sa description, ses coûts par niveau et le monter ou le baisser.</p>`;return}
+  const s=skills()[selSkill],lv=S.sk[selSkill]||0,lock=skLock(selSkill);
+  const cols=[["Incant.",3,v=>v.toFixed(1)+" s"],["Portée",4,v=>(v/100).toFixed(1)+" m"],["Zone",5,v=>(v/100).toFixed(1)+" m"],["Durée",6,fmtDur]].filter(c=>s.lv.some(l=>l[c[1]]));
+  el.innerHTML=`<h3>${s.n}</h3>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><span class="pill">Niveau ${lv}/${s.lv.length}</span><span class="pill">${s.c.length?s.c.join(" / "):"Toutes classes"}</span><span class="pill">Arme : ${s.w.split(", ").map(w=>WSKILL[w]||w).join(", ")}</span></div>
+   <p>${fmtDesc(lv?s.lv[lv-1][7]:s.d)}</p>
+   ${lv<s.lv.length?`<p class="hint"><b>Niveau ${lv+1} :</b> ${fmtDesc(s.lv[lv][7])}</p>`:""}
+   ${s.r.length?`<p class="hint">Prérequis : ${s.r.map(r=>skills()[r]?skills()[r].n:r).join(", ")} (niveau 1 minimum)</p>`:""}
+   <div class="btns"><button type="button" class="btn" data-act="dec" ${lv?"":"disabled"}>−1</button><button type="button" class="btn primary" data-act="inc" ${lock?"disabled":""}>+1</button><button type="button" class="btn" data-act="max" ${lock?"disabled":""}>Max possible</button><button type="button" class="btn" data-act="zero" ${lv?"":"disabled"}>Remettre à 0</button></div>
+   ${lock?`<div class="why">${lock}</div>`:""}
+   <div class="tblwrap"><table class="lvtable"><thead><tr><th style="text-align:left">Niv.</th><th>Niv. requis</th><th>MP</th><th>Recharge</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}</tr></thead><tbody>
+   ${s.lv.map((l,i)=>`<tr class="${i+1===lv?"cur":""} ${l[0]>S.land?"locked":""}"><td style="text-align:left">${i+1}</td><td>${l[0]}</td><td>${l[1]}</td><td>${l[2]?(l[2]/1000).toFixed(1)+" s":"–"}</td>${cols.map(c=>`<td>${l[c[1]]?c[2](l[c[1]]):"–"}</td>`).join("")}</tr>`).join("")}
+   </tbody></table></div>`;
+}
+
+/* ---------- builds ---------- */
+function encode(){return btoa(unescape(encodeURIComponent(JSON.stringify({v:1,...S,es:Object.fromEntries(Object.entries(S.es||{}).map(([k,a])=>[k,a.map(i=>i==null||!D.essences[i]?null:D.essences[i].n+"|"+i)])),eq:Object.fromEntries(Object.entries(S.eq).map(([k,i])=>{const kind=SLOTS.find(s=>s[0]===k)[2];return [k,D.items[kind][i].n+"|"+(D.items[kind][i].l||0)+"|"+i]}))}))))}
+function decode(code){
+  const o=JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+  const n=fresh();Object.assign(n,o);n.pts={...fresh().pts,...o.pts};n.eq={};
+  for(const [k,v] of Object.entries(o.eq||{})){const slot=SLOTS.find(s=>s[0]===k);if(!slot)continue;const kind=slot[2];const [nm,l,i]=String(v).split("|");
+    let idx=+i;if(!(D.items[kind][idx]&&D.items[kind][idx].n===nm))idx=D.items[kind].findIndex(it=>it.n===nm&&String(it.l||0)===l);if(idx>=0)n.eq[k]=idx}
+  n.es={};
+  for(const [k,a] of Object.entries(o.es||{})){if(!n.eq.hasOwnProperty(k)||!Array.isArray(a))continue;
+    n.es[k]=a.slice(0,ES_SLOTS).map(v=>{if(v==null)return null;const [nm,i]=String(v).split("|");let idx=+i;if(!(D.essences[idx]&&D.essences[idx].n===nm))idx=D.essences.findIndex(e=>e.n===nm);return idx>=0?idx:null})}
+  return n;
+}
+function renderSaved(){
+  const list=store.get("fl-builds")||{};
+  $("saved").innerHTML=Object.keys(list).length?Object.entries(list).map(([n,b])=>`<span>${n.replace(/</g,"&lt;")}<button type="button" data-load="${encodeURIComponent(n)}">Ouvrir</button><button type="button" data-del="${encodeURIComponent(n)}" aria-label="Supprimer ${n.replace(/"/g,"")}">✕</button></span>`).join(""):`<span class="hint" style="border:0;padding:0">Aucun build enregistré pour l'instant.</span>`;
+}
+
+function renderAll(){renderHeader();renderStats();renderSlots();renderTree();store.set("fl-current",encode())}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.c){const keep=S.gender;S={...fresh(),cls:t.dataset.c,land:S.land,sea:S.sea,gender:keep};selSkill=null;renderAll();return}
+  if(t.dataset.s){const k=t.dataset.s,d=+t.dataset.d*(e.shiftKey?10:1);const left=pointsTotal()-pointsUsed();
+    S.pts[k]=Math.max(0,S.pts[k]+(d>0?Math.min(d,Math.max(left,0)):d));renderStats();store.set("fl-current",encode());return}
+  if(t.dataset.ws){S.ws=+t.dataset.ws;renderAll();return}
+  if(t.dataset.ex){openEx(t.dataset.ex);return}
+  if(t.dataset.exdel!=null){S.ex[exKey].splice(+t.dataset.exdel,1);renderEx();renderAll();return}
+  if(t.dataset.slot){openPicker(t.dataset.slot);return}
+  if(t.dataset.es){const [k,p]=t.dataset.es.split(":");openEss(k,+p);return}
+  if(t.dataset.ei!=null&&pkSlot&&pkEs!=null){S.es=S.es||{};const a=esList(pkSlot);a[pkEs]=+t.dataset.ei;S.es[pkSlot]=a;$("picker").close();renderAll();return}
+  if(t.dataset.i!=null&&pkSlot){S.eq[pkSlot]=+t.dataset.i;S.up[pkSlot]=S.up[pkSlot]||0;
+    if(S.es&&S.es[pkSlot])S.es[pkSlot]=esList(pkSlot).map((ei,pos)=>ei!=null&&esUsable(D.essences[ei],pkSlot,pos)?ei:null);
+    for(const [wk,sk] of WSETS){const w=itemFrom("weapon",S.eq[wk]);if(w&&NO_SHIELD.has(w.t))delete S.eq[sk]}
+    $("picker").close();renderAll();return}
+  if(t.dataset.sk){const code=t.dataset.sk;selSkill=code;if(!skLock(code)&&e.detail<2)skInc(code,false);renderAll();return}
+  if(t.dataset.act){const a=t.dataset.act;if(a==="inc")skInc(selSkill,false);if(a==="max")skInc(selSkill,true);if(a==="dec")skDec(selSkill);if(a==="zero")setSk(selSkill,0);renderAll();return}
+  if(t.dataset.load){const list=store.get("fl-builds")||{};const n=decodeURIComponent(t.dataset.load);S=decode(list[n]);$("bName").value=n;selSkill=null;pruneSkills();pruneEquip();renderAll();toast(`Build « ${n} » chargé`);return}
+  if(t.dataset.del){const list=store.get("fl-builds")||{};delete list[decodeURIComponent(t.dataset.del)];store.set("fl-builds",list);renderSaved();toast("Build supprimé");return}
+});
+$("tree").addEventListener("contextmenu",e=>{const t=e.target.closest("[data-sk]");if(!t)return;e.preventDefault();selSkill=t.dataset.sk;skDec(selSkill);renderAll()});
+$("tree").addEventListener("dblclick",e=>{const t=e.target.closest("[data-sk]");if(!t)return;skInc(t.dataset.sk,true);renderAll()});
+$("slots").addEventListener("change",e=>{if(e.target.dataset.up){S.up[e.target.dataset.up]=+e.target.value;renderStats();renderSlots();store.set("fl-current",encode())}});
+$("slots").addEventListener("click",e=>{if(e.target.closest("select"))e.stopPropagation()},true);
+$("job").addEventListener("change",e=>{S.job=e.target.value;pruneSkills();pruneEquip();renderAll()});
+const clampIn=(el,min,max)=>Math.min(max,Math.max(min,parseInt(el.value,10)||min));
+$("lvLand").addEventListener("change",e=>{S.land=clampIn(e.target,1,120);if(S.land<40)S.job="";pruneEquip();
+  while(pointsUsed()>pointsTotal()){const k=STATS.map(s=>s[0]).sort((a,b)=>S.pts[b]-S.pts[a])[0];S.pts[k]--}
+  pruneSkills();renderAll()});
+$("lvSea").addEventListener("change",e=>{S.sea=clampIn(e.target,1,99);while(pointsUsed()>pointsTotal()){const k=STATS.map(s=>s[0]).sort((a,b)=>S.pts[b]-S.pts[a])[0];S.pts[k]--}renderAll()});
+$("gender").addEventListener("change",e=>{S.gender=e.target.value;pruneEquip();renderAll()});
+$("skReset").addEventListener("click",()=>{S.sk={};renderAll();toast("Arbre réinitialisé")});
+["pkSearch","pkUsable","pkBonus","pkType","pkSort"].forEach(id=>$(id).addEventListener(id==="pkSearch"?"input":"change",renderPicker));
+$("pkClose").addEventListener("click",()=>$("picker").close());
+$("exClose").addEventListener("click",()=>$("exDlg").close());
+$("exCode").addEventListener("change",exSync);
+$("exAdd").addEventListener("click",()=>{const v=parseFloat($("exVal").value);if(!isFinite(v)||!v)return;const raw=$("exCode").value,seal=raw[0]==="s",code=+(seal?raw.slice(1):raw);
+  S.ex=S.ex||{};const a=(S.ex[exKey]=S.ex[exKey]||[]);
+  if(seal&&a.filter(b=>b[3]==="s").length>=5){toast("5 sceaux maximum par objet");return}
+  const pct=seal?sealRange(code,exItem())[0]==="*":$("exPct").checked;
+  a.push(seal?[code,pct?"*":"+",pct?v/100:v,"s"]:[code,pct?"*":"+",pct?v/100:v]);exSync();renderEx();renderAll()});
+$("pkClear").addEventListener("click",()=>{if(pkEs!=null){const a=esList(pkSlot);a[pkEs]=null;S.es[pkSlot]=a}else{delete S.eq[pkSlot];delete S.up[pkSlot];if(S.es)delete S.es[pkSlot]}$("picker").close();renderAll()});
+$("picker").addEventListener("click",e=>{if(e.target===$("picker"))$("picker").close()});
+$("bSave").addEventListener("click",()=>{const n=$("bName").value.trim()||`${CLASSES[S.cls].name}${job()?" "+job():""} niv. ${S.land}`;const list=store.get("fl-builds")||{};list[n]=encode();store.set("fl-builds",list);$("bName").value=n;renderSaved();toast(`Build « ${n} » enregistré`)});
+$("bNew").addEventListener("click",()=>{S={...fresh(),cls:S.cls};$("bName").value="";selSkill=null;renderAll();toast("Nouveau build")});
+$("bExport").addEventListener("click",()=>{const c=encode();$("bCode").value=c;
+  navigator.clipboard?.writeText(c).then(()=>toast("Code copié"),()=>{$("bCode").select();toast("Code sélectionné, copiez-le")})??($("bCode").select(),toast("Code sélectionné, copiez-le"))});
+$("ptsReset").addEventListener("click",()=>{S.pts={...fresh().pts};renderAll();store.set("fl-current",encode());toast("Points remis à 0")});
+$("bImport").addEventListener("click",()=>{try{S=decode($("bCode").value);selSkill=null;pruneSkills();pruneEquip();renderAll();toast("Build importé")}catch(err){toast("Ce code n'est pas un code de build valide")}});
+
+/* ---------- boot ---------- */
+(window.FLO_DATA?Promise.resolve(window.FLO_DATA):fetch("data.json").then(r=>r.json())).then(d=>{
+  D=d;
+  const cur=store.get("fl-current");
+  if(cur){try{S=decode(cur)}catch(e){S=fresh()}}
+  else{ // example build so the page opens in a working state
+    S={...fresh(),cls:"explorer",job:"Sniper",land:60,sea:40,pts:{...fresh().pts}};
+    const pick=(kind,pred)=>{let best=-1;D.items[kind].forEach((it,i)=>{if(pred(it)&&canUse(it)&&(best<0||(it.l||0)>(D.items[kind][best].l||0)))best=i});return best<0?undefined:best};
+    S.eq.weapon=pick("weapon",it=>it.t==="rifle");for(const k of ["coat","pants","gauntlet","shoes"])S.eq[k]=pick(k,()=>true);
+    for(const k in S.eq)if(S.eq[k]===undefined)delete S.eq[k];
+    for(const c of ["ck000800","ck009000","ck005800","ck001000","ck009100","ck001500"])skInc(c,true);
+    selSkill="ck005800";
+  }
+  pruneSkills();pruneEquip();renderAll();renderSaved();
+}).catch(()=>{$("detail").innerHTML="<h3>Données indisponibles</h3><p>Le fichier de données n'a pas pu être chargé. Rechargez la page.</p>"});
+</script>
+
+</body></html>

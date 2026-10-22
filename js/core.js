@@ -32,11 +32,11 @@ const hasEss=(kind,upg)=>upg||kind==="shield";
 const esTypeOk=(e,kind)=>e.t==="ALL"||(kind==="weapon"?e.t==="WEAPONS":kind==="shield"?false:e.t==="ARMOR");
 const esList=key=>{const a=(S.es&&S.es[key])||[];return Array.from({length:ES_SLOTS},(_,i)=>a[i]??null)};
 // Every item with essences has 4 slots. A core slot is an upgraded meta slot: it takes core or meta essences.
-// Legendary weapons (grade 3) and class-change items (usable only by jobs such as Sniper or Gladiator)
+// Legendary weapons and shields (grade 3) and class-change items (usable only by jobs such as Sniper or Gladiator)
 // have 2 core + 2 meta slots, every other item 1 core + 3 meta.
 // Saved positions: 0 = core, 1 = core on those items (meta otherwise), 2-3 = meta.
 const isCCItem=it=>!!(it&&it.c&&it.c.length&&it.c.every(c=>Object.values(CLASSES).some(k=>k.jobs.includes(c))));
-const coreSlots=(kind,it)=>it&&((kind==="weapon"&&it.g===3)||isCCItem(it))?2:1;
+const coreSlots=(kind,it)=>it&&(((kind==="weapon"||kind==="shield")&&it.g===3)||isCCItem(it))?2:1;
 const isCore=(kind,it,pos)=>pos<coreSlots(kind,it);
 // display order (meta slots first, then core) and the slot number shown to the user
 const esOrder=(kind,it)=>{const all=[0,1,2,3];return [...all.filter(p=>!isCore(kind,it,p)),...all.filter(p=>isCore(kind,it,p))]};

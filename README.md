@@ -17,7 +17,10 @@ The interface is available in English and French: it follows the browser's langu
 
 | File | Purpose |
 |---|---|
-| `index.html` | The planner (HTML, CSS and JavaScript in a single file) |
+| `index.html` | Page layout (HTML only) |
+| `css/style.css` | Styles, light and dark theme |
+| `js/` | Application code, one file per area (see [CONTRIBUTING.md](CONTRIBUTING.md)) |
+| `lang/fr.js`, `lang/en.js` | Every interface text, one file per language |
 | `data.json` | Game data: items, upgrades, essences, sets, skills |
 | `data.js` | Copy of `data.json` loaded by the page, so it also works when opened from disk |
 | `icons.webp` | Icon sprite sheet (32 px) |

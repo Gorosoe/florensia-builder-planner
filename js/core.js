@@ -32,11 +32,13 @@ const hasEss=(kind,upg)=>upg||kind==="shield";
 const esTypeOk=(e,kind)=>e.t==="ALL"||(kind==="weapon"?e.t==="WEAPONS":kind==="shield"?false:e.t==="ARMOR");
 const esList=key=>{const a=(S.es&&S.es[key])||[];return Array.from({length:ES_SLOTS},(_,i)=>a[i]??null)};
 // Every item with essences has 4 slots. A core slot is an upgraded meta slot: it takes core or meta essences.
-// Legendary weapons and shields (grade 3) and class-change items (usable only by jobs such as Sniper or Gladiator)
+// Legendary items (grade 3: weapons, shields and armor such as Droes, Realm/Steam), Realm items and class-change items (usable only by jobs such as Sniper or Gladiator)
 // have 2 core + 2 meta slots, every other item 1 core + 3 meta.
 // Saved positions: 0 = core, 1 = core on those items (meta otherwise), 2-3 = meta.
 const isCCItem=it=>!!(it&&it.c&&it.c.length&&it.c.every(c=>Object.values(CLASSES).some(k=>k.jobs.includes(c))));
-const coreSlots=(kind,it)=>it&&(((kind==="weapon"||kind==="shield")&&it.g===3)||isCCItem(it))?2:1;
+// Realm items: the craftable gear of level 101 to 105 (Steam Armor sets)
+const isRealmItem=it=>!!(it&&it.cr&&it.l>=101&&it.l<=105);
+const coreSlots=(kind,it)=>it&&(it.g===3||isCCItem(it)||isRealmItem(it))?2:1;
 const isCore=(kind,it,pos)=>pos<coreSlots(kind,it);
 // display order (meta slots first, then core) and the slot number shown to the user
 const esOrder=(kind,it)=>{const all=[0,1,2,3];return [...all.filter(p=>!isCore(kind,it,p)),...all.filter(p=>isCore(kind,it,p))]};

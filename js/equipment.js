@@ -11,7 +11,7 @@ function renderSlots(){
     return `<div class="slot-wrap"><button type="button" class="slot${up?" has-up":""}" data-slot="${key}" ${blocked?`disabled title="${tx("two_handed_weapon_equipped")}"`:""}>
       <span class="ico">${it?`<span class="icon" style="${iconStyle(it.i)}"></span>`:`<span class="label" style="font-size:9px">${label.slice(0,4)}</span>`}</span>
       <span style="min-width:0"><span class="label">${label}${bad?` · <span style="color:var(--warn)">${tx("not_usable")}</span>`:""}</span><div class="nm ${it?"g"+(it.g||0):"empty"}">${it?it.n:(blocked?tx("blocked_by_weapon"):tx("empty"))}</div><div class="sub">${it?sub:"&nbsp;"}</div></span>
-      <span></span></button>${up?`<span style="position:absolute;right:8px;top:30px;transform:translateY(-50%)">${up}</span>`:""}${hasEss(kind,upg)&&it?`<div class="ess"><span class="elabel">Essences</span>${esOrder(kind,it).map(pos=>{const ei=esList(key)[pos],core=isCore(kind,it,pos),num=esNum(kind,it,pos);const e=ei!=null?D.essences[ei]:null;const lbl=(core?tx("core_slot"):tx("meta_slot"))+num+(e?tx("colon")+e.n+" ("+e.b.map(fmtB).join(", ")+")":tx("empty_suffix"));return `<button type="button" class="es${core?" core":""}${e?" set":""}" data-es="${key}:${pos}" title="${lbl.replace(/"/g,"&quot;")}" aria-label="${lbl.replace(/"/g,"&quot;")}">${e?`<span class="icon" style="${iconStyle(e.i)}"></span>`:(core?"◆":"+")}</button>`}).join("")}${sealType(kind,it)?`<button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="${tx("seals")}" aria-label="${tx("seals_of")} ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button>`:""}</div>`:""}${!upg&&it&&sealType(kind,it)?`<div class="ess"><button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="${tx("seals")}" aria-label="${tx("seals_of")} ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button></div>`:""}</div>`;
+      <span></span></button>${up?`<span style="position:absolute;right:8px;top:30px;transform:translateY(-50%)">${up}</span>`:""}${hasEss(kind,upg)&&it?`<div class="ess"><span class="elabel">Essences</span>${esOrder(kind,it).map(pos=>{const ei=esList(key)[pos],core=isCore(kind,it,pos),num=esNum(kind,it,pos);const e=ei!=null?D.essences[ei]:null;const lbl=(core?tx("core_slot"):tx("meta_slot"))+num+(e?tx("colon")+e.n+" ("+e.b.map(fmtB).join(", ")+")":tx("empty_suffix"));return `<button type="button" class="es${core?" core":""}${e?" set":""}" data-es="${key}:${pos}" title="${lbl.replace(/"/g,"&quot;")}" aria-label="${lbl.replace(/"/g,"&quot;")}">${e?`<span class="icon" style="${iconStyle(e.i)}"></span>`:(core?"◆":"+")}</button>`}).join("")}${esList(key).some(ei=>ei!=null&&D.essences[ei])?`<button type="button" class="es exb cpb" data-cp="${key}" title="${tx("cp_copy")}" aria-label="${tx("cp_copy_of")} ${label}">⧉</button>`:""}${sealType(kind,it)?`<button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="${tx("seals")}" aria-label="${tx("seals_of")} ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button>`:""}</div>`:""}${!upg&&it&&sealType(kind,it)?`<div class="ess"><button type="button" class="es exb${(S.ex&&S.ex[key]&&S.ex[key].length)?" set":""}" data-ex="${key}" title="${tx("seals")}" aria-label="${tx("seals_of")} ${label}">✎${(S.ex&&S.ex[key]&&S.ex[key].length)||""}</button></div>`:""}</div>`;
   };
   const ROM=["I","II","III"];
   $("slots").innerHTML=`<div class="wsets"><div class="wsets-h"><span class="label">${tx("weapon_sets_only_the_active_set")}</span><div class="wtabs" role="group" aria-label="${tx("active_weapon_set")}">${ROM.map((r,i)=>`<button type="button" class="cls" data-ws="${i+1}" aria-pressed="${(S.ws||1)===i+1}">Set ${r}</button>`).join("")}</div></div>`+
@@ -86,3 +86,44 @@ function exSync(){const v=$("exCode").value;const it=exItem();if(v[0]==="s"&&it)
 function exItem(){const [,,kind]=SLOTS.find(s=>s[0]===exKey);return itemFrom(kind,S.eq[exKey])}
 function renderEx(){const a=((S.ex&&S.ex[exKey])||[]).filter(b=>b[3]==="s");
   $("exList").innerHTML=a.length?a.map((b,i)=>`<div class="exrow"><span>${b[3]==="s"?tx("seal"):""}${fmtB(b)}</span><button type="button" class="btn" data-exdel="${i}" aria-label="${tx("remove")}">✕</button></div>`).join(""):`<p class="hint" style="margin:0">${tx("no_bonus_added")}</p>`}
+
+// Copy the essences of one piece and paste them onto other pieces. Each target keeps its own rules:
+// core essences only in core slots, meta essences in meta slots first then free core slots,
+// essence type valid for the piece (shields: "ALL" only), essence level <= item level, same essence max twice.
+let cpKey=null;
+function esPlan(src,dst){
+  const dk=SLOTS.find(s=>s[0]===dst)[2],dit=itemFrom(dk,S.eq[dst]);
+  const out=Array(ES_SLOTS).fill(null),skipped=[],count={};
+  const core=[0,1,2,3].filter(p=>isCore(dk,dit,p)),meta=[0,1,2,3].filter(p=>!isCore(dk,dit,p));
+  const list=esList(src).filter(ei=>ei!=null&&D.essences[ei]);
+  list.sort((a,b)=>(D.essences[b].k?1:0)-(D.essences[a].k?1:0)); // core essences first, they need a core slot
+  for(const ei of list){
+    const e=D.essences[ei];
+    if(!esTypeOk(e,dk)){skipped.push([e,"cp_why_type"]);continue}
+    if(e.l>(dit.l||0)){skipped.push([e,"cp_why_level"]);continue}
+    if((count[e.n]||0)>=2){skipped.push([e,"cp_why_dup"]);continue}
+    const pos=(e.k?core:[...meta,...core]).find(p=>out[p]==null);
+    if(pos==null){skipped.push([e,e.k?"cp_why_core":"cp_why_full"]);continue}
+    out[pos]=ei;count[e.n]=(count[e.n]||0)+1;
+  }
+  return {out,skipped,n:out.filter(x=>x!=null).length};
+}
+const cpTargets=src=>SLOTS.filter(([k,,kind,upg])=>k!==src&&hasEss(kind,upg)&&itemFrom(kind,S.eq[k]));
+function openCp(key){
+  cpKey=key;const [,label]=SLOTS.find(s=>s[0]===key);
+  $("cpTitle").textContent=tx("cp_title",{piece:label});
+  $("cpSrc").textContent=esList(key).filter(ei=>ei!=null&&D.essences[ei]).map(ei=>D.essences[ei].n).join(", ");
+  const tg=cpTargets(key);
+  $("cpList").innerHTML=tg.length?tg.map(([k,lbl,kind])=>{const it=itemFrom(kind,S.eq[k]),p=esPlan(key,k);
+    const why=p.skipped.map(([e,w])=>`${esc(e.n)} (${tx(w)})`).join(", ");
+    return `<label class="cprow"><input type="checkbox" data-cpt="${k}"${p.n?"":" disabled"}><span style="min-width:0"><span class="label">${esc(lbl)}${isActive(k)?"":" · "+tx("cp_inactive_set")}</span><div class="nm g${it.g||0}">${esc(it.n)}</div><div class="sub${p.skipped.length?" warn":""}">${txn("cp_will_paste",p.n)}${why?" · "+tx("cp_skipped")+why:""}</div></span></label>`}).join(""):`<p class="hint" style="margin:0">${tx("cp_no_target")}</p>`;
+  cpSync();$("cpDlg").showModal();
+}
+function cpSync(){const n=document.querySelectorAll("#cpList [data-cpt]:checked").length;$("cpGo").disabled=!n;$("cpGo").textContent=n?txn("cp_paste_on",n):tx("cp_paste")}
+function cpPaste(){
+  const keys=[...document.querySelectorAll("#cpList [data-cpt]:checked")].map(i=>i.dataset.cpt);if(!keys.length)return;
+  S.es=S.es||{};let skipped=0;
+  for(const k of keys){const p=esPlan(cpKey,k);S.es[k]=p.out;skipped+=p.skipped.length}
+  $("cpDlg").close();renderAll();
+  toast(txn("cp_done",keys.length)+(skipped?" · "+txn("cp_done_skipped",skipped):""));
+}

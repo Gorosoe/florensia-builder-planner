@@ -11,7 +11,7 @@ function renderStats(){
   const {t,stb,out,extras,sets,passives}=compute();
   const left=pointsTotal()-pointsUsed();
   const pl=$("ptsLeft");pl.textContent=txn("free_points",left);pl.className="pill"+(left<0?" warn":"");
-  $("alloc").innerHTML=STATS.map(([k,ab,full])=>`<div class="arow" title="${full}"><b>${ab}</b><span class="base" title="${tx("class_base_and_manually_allocated_points")}">base ${CLASSES[S.cls].base[k]} · points +${S.pts[k]||0}</span><span class="bonus" title="${tx("equipment_bonus_items_essences_seals_sets")}">${stb[k]?"bonus +"+stb[k]:""}</span><span class="tot">${t[k]}</span>${k==="luc"?"<span class=\"step\"></span>":`<span class="step"><button type="button" data-s="${k}" data-d="-1" aria-label="${tx("remove_from")} ${full}">−</button><button type="button" data-s="${k}" data-d="1" aria-label="${tx("add_to")} ${full}">+</button></span>`}</div>`).join("");
+  $("alloc").innerHTML=STATS.map(([k,ab,full])=>`<div class="arow" title="${full}"><b>${ab}</b><span class="base" title="${tx("class_base_and_manually_allocated_points")}">base ${CLASSES[S.cls].base[k]} · pts +${S.pts[k]||0}</span><span class="bonus" title="${tx("equipment_bonus_items_essences_seals_sets")}">${stb[k]?"bonus +"+stb[k]:""}</span><span class="tot">${t[k]}</span>${k==="luc"?"<span class=\"step\"></span>":`<span class="step"><button type="button" data-s="${k}" data-d="-1" aria-label="${tx("remove_from")} ${full}">−</button><button type="button" data-s="${k}" data-d="1" aria-label="${tx("add_to")} ${full}">+</button><button type="button" class="all" data-sall="${k}" title="${tx("all_points_in")} ${full}" aria-label="${tx("all_points_in")} ${full}">⇈</button></span>`}</div>`).join("");
   const row=(l,v)=>`<dt>${l}</dt><dd>${v}</dd>`;
   $("derived").innerHTML=
     `<div class="grp label">${tx("vitality")}</div>`+row("HP",out.hp)+row("MP",out.mp)+
@@ -25,6 +25,7 @@ function renderStats(){
 }
 function renderBuffs(){S.bf=S.bf||{};
   const list=BUFFS.filter(b=>(!b.sk||buffSkill(b))&&buffOk(b));
+  const nOn=list.filter(b=>S.bf[b.id]>0).length;$("bfCount").hidden=!nOn;$("bfCount").textContent=nOn;
   $("buffs").innerHTML=list.map(b=>{const lv=S.bf[b.id]||0,max=buffMax(b),on=lv>0;const cur=on?Math.min(lv,max):max;
     const fx=buffFx(b,cur).map(fmtB).join(", ");const who=b.pet?tx("spirit"):b.share?tx("party"):tx("self");
     return `<div class="brow${on?" on":""}"><label><input type="checkbox" data-bf="${b.id}"${on?" checked":""}> ${esc(buffName(b))} <span class="label">${who}${b.cls&&b.share?" · "+CLASSES[b.cls].name:""}</span></label>${max>1?`<select data-bflv="${b.id}" aria-label="${tx("level_of")} ${esc(buffName(b))}">${Array.from({length:max},(_,i)=>`<option value="${i+1}"${i+1===cur?" selected":""}>${b.tiers?["I","II","III","IV","V"][i]:tx("lvl_prefix")+(i+1)}</option>`).join("")}</select>`:""}<span class="bfx">${esc(fx)}</span></div>`}).join("");

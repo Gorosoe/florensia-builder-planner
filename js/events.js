@@ -4,7 +4,10 @@ document.addEventListener("click",e=>{
   if(t.dataset.c){const keep=S.gender;S={...fresh(),cls:t.dataset.c,land:S.land,sea:S.sea,gender:keep};selSkill=null;renderAll();return}
   if(t.dataset.s){const k=t.dataset.s,d=+t.dataset.d*(e.shiftKey?10:1);const left=pointsTotal()-pointsUsed();
     S.pts[k]=Math.max(0,S.pts[k]+(d>0?Math.min(d,Math.max(left,0)):d));renderStats();store.set("fl-current",encode());return}
+  // all stat points into one stat: the other stats go back to 0
+  if(t.dataset.sall){const k=t.dataset.sall;for(const s in S.pts)S.pts[s]=0;S.pts[k]=Math.max(0,pointsTotal());renderStats();store.set("fl-current",encode());toast(tx("all_points_done",{n:S.pts[k],stat:STATS.find(s=>s[0]===k)[2]}));return}
   if(t.dataset.ws){S.ws=+t.dataset.ws;renderAll();return}
+  if(t.dataset.cp){openCp(t.dataset.cp);return}
   if(t.dataset.ex){openEx(t.dataset.ex);return}
   if(t.dataset.exdel!=null){S.ex[exKey].splice(+t.dataset.exdel,1);renderEx();renderAll();return}
   if(t.dataset.slot){openPicker(t.dataset.slot);return}
@@ -34,6 +37,11 @@ $("skReset").addEventListener("click",()=>{S.sk={};renderAll();toast(tx("tree_re
 ["pkSearch","pkUsable","pkBonus","pkType","pkSort"].forEach(id=>$(id).addEventListener(id==="pkSearch"?"input":"change",renderPicker));
 $("pkClose").addEventListener("click",()=>$("picker").close());
 $("exClose").addEventListener("click",()=>$("exDlg").close());
+$("cpClose").addEventListener("click",()=>$("cpDlg").close());
+$("cpList").addEventListener("change",cpSync);
+$("cpAll").addEventListener("click",()=>{const b=[...document.querySelectorAll("#cpList [data-cpt]:not(:disabled)")];const on=b.some(i=>!i.checked);b.forEach(i=>i.checked=on);cpSync()});
+$("cpGo").addEventListener("click",cpPaste);
+$("cpDlg").addEventListener("click",e=>{if(e.target===$("cpDlg"))$("cpDlg").close()});
 $("exCode").addEventListener("change",exSync);
 $("exAdd").addEventListener("click",()=>{const v=parseFloat($("exVal").value);if(!isFinite(v)||!v)return;const raw=$("exCode").value,seal=raw[0]==="s",code=+(seal?raw.slice(1):raw);
   S.ex=S.ex||{};const a=(S.ex[exKey]=S.ex[exKey]||[]);
@@ -44,9 +52,13 @@ $("pkClear").addEventListener("click",()=>{if(pkEs!=null){const a=esList(pkSlot)
 $("picker").addEventListener("click",e=>{if(e.target===$("picker"))$("picker").close()});
 $("bSave").addEventListener("click",()=>{const n=$("bName").value.trim()||`${CLASSES[S.cls].name}${job()?" "+job():""} ${tx("lvl")} ${S.land}`;const list=store.get("fl-builds")||{};list[n]=encode();store.set("fl-builds",list);$("bName").value=n;renderSaved();toast(tx("build_saved",{name:n}))});
 $("bNew").addEventListener("click",()=>{S={...fresh(),cls:S.cls};$("bName").value="";selSkill=null;renderAll();toast(tx("new_build"))});
-$("bExport").addEventListener("click",()=>{const c=encode();$("bCode").value=c;
+$("bExport").addEventListener("click",()=>{const c=encode();$("bCode").value=c;$("importBox").hidden=false;$("bShowImport").setAttribute("aria-expanded",true);
   navigator.clipboard?.writeText(c).then(()=>toast(tx("code_copied")),()=>{$("bCode").select();toast(tx("code_selected_copy_it"))})??($("bCode").select(),toast(tx("code_selected_copy_it")))});
 $("ptsReset").addEventListener("click",()=>{S.pts={...fresh().pts};renderAll();store.set("fl-current",encode());toast(tx("points_reset"))});
 $("bImport").addEventListener("click",()=>{try{S=decode($("bCode").value);selSkill=null;pruneSkills();pruneEquip();renderAll();toast(tx("build_imported"))}catch(err){toast(tx("this_is_not_a_valid_build"))}});
 $("lang").addEventListener("change",e=>setLang(e.target.value));
+$("bShowImport").addEventListener("click",()=>{const b=$("importBox"),open=b.hidden;b.hidden=!open;$("bShowImport").setAttribute("aria-expanded",open);if(open)$("bCode").focus()});
+// the computed stats panel sticks under the header: keep its offset equal to the header height
+const barH=()=>document.documentElement.style.setProperty("--bar-h",document.querySelector("header.bar").offsetHeight+"px");
+barH();addEventListener("resize",barH);
 translatePage();

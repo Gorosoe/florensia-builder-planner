@@ -25,21 +25,33 @@
 </header>
 
 <main class="wrap">
+  <section class="panel builds" aria-labelledby="h-b">
+    <div class="row"><h2 id="h-b" data-i18n="my_builds">Mes builds</h2><input id="bName" placeholder="Nom du build (ex. Sniper PvE 95)" data-i18n-placeholder="build_name_e_g_sniper_pve" style="flex:1 1 200px"><button class="btn primary" id="bSave" type="button" data-i18n="save">Enregistrer</button><button class="btn" id="bNew" type="button" data-i18n="new_build">Nouveau build</button><button class="btn" id="bExport" type="button" data-i18n="copy_build_code">Copier le code du build</button><button class="btn" id="bShowImport" type="button" aria-expanded="false" aria-controls="importBox" data-i18n="import_code">Importer le code</button></div>
+    <div class="row" id="importBox" hidden><input id="bCode" placeholder="Code de build" data-i18n-placeholder="build_code" aria-label="Code de build" data-i18n-aria-label="build_code" style="flex:1 1 260px;font-family:var(--f-mono);font-size:12px"><button class="btn primary" id="bImport" type="button" data-i18n="import_code">Importer le code</button></div>
+    <div class="saved" id="saved"></div>
+  </section>
+
   <div class="cols">
-    <section class="panel" aria-labelledby="h-stats">
-      <div class="panel-h"><h2 id="h-stats" data-i18n="stats">Statistiques</h2><span style="display:flex;gap:6px;align-items:center"><span class="pill" id="ptsLeft"></span><button class="btn" id="ptsReset" type="button" title="Remettre tous les points répartis à 0" data-i18n-title="reset_all_allocated_points_to_0" data-i18n="reset">Remettre à 0</button></span></div>
+    <section class="panel c-stats" aria-labelledby="h-stats">
+      <div class="panel-h"><h2 id="h-stats" data-i18n="stat_points">Points de stats</h2><span style="display:flex;gap:6px;align-items:center"><span class="pill" id="ptsLeft"></span><button class="btn" id="ptsReset" type="button" title="Remettre tous les points répartis à 0" data-i18n-title="reset_all_allocated_points_to_0" data-i18n="reset">Remettre à 0</button></span></div>
       <div class="alloc" id="alloc"></div>
       <p class="hint" data-i18n="click_1_shift_click_10_points">Clic : ±1 · Maj+clic : ±10. Points : 3 par niveau terre + 1 par niveau mer au-delà du 1, jusqu'au niveau mer 69.</p>
-      <dl class="derived" id="derived"></dl>
-      <div class="extras" id="extras"></div>
-      <h3 class="label" style="margin:14px 0 6px">Buffs</h3>
-      <p class="hint" style="margin:0 0 6px" data-i18n="party_buffs_received_from_any_class">Buffs de groupe : reçus de n'importe quelle classe. Buffs personnels : seulement ceux de ta classe et de ton job. Bonus fixes, comme en jeu.</p>
-      <div class="buffs" id="buffs"></div>
+      <details class="bfbox" id="bfBox">
+        <summary><h3 class="label">Buffs <span class="pill" id="bfCount" hidden></span></h3></summary>
+        <p class="hint" style="margin:0 0 6px" data-i18n="party_buffs_received_from_any_class">Buffs de groupe : reçus de n'importe quelle classe. Buffs personnels : seulement ceux de ta classe et de ton job. Bonus fixes, comme en jeu.</p>
+        <div class="buffs" id="buffs"></div>
+      </details>
     </section>
 
-    <section class="panel" aria-labelledby="h-eq">
+    <section class="panel c-eq" aria-labelledby="h-eq">
       <div class="panel-h"><h2 id="h-eq" data-i18n="equipment">Équipement</h2><span class="label" data-i18n="pick_a_slot_to_open_the">Choisir un emplacement pour ouvrir la liste · + slot méta, ◆ slot core (core ou méta)</span></div>
       <div class="slots" id="slots"></div>
+    </section>
+
+    <section class="panel c-res" aria-labelledby="h-res">
+      <div class="panel-h"><h2 id="h-res" data-i18n="stats">Statistiques</h2></div>
+      <dl class="derived" id="derived"></dl>
+      <div class="extras" id="extras"></div>
     </section>
   </div>
 
@@ -53,15 +65,6 @@
       </div>
       <div class="detail" id="detail"></div>
     </div>
-  </section>
-
-  <section class="panel builds" aria-labelledby="h-b">
-    <div class="panel-h"><h2 id="h-b" data-i18n="my_builds">Mes builds</h2><span class="label" data-i18n="saved_in_this_browser">Enregistrés dans ce navigateur</span></div>
-    <div class="row"><input id="bName" placeholder="Nom du build (ex. Sniper PvE 95)" data-i18n-placeholder="build_name_e_g_sniper_pve" style="flex:1"><button class="btn primary" id="bSave" type="button" data-i18n="save">Enregistrer</button><button class="btn" id="bNew" type="button" data-i18n="new_build">Nouveau build</button></div>
-    <div class="saved" id="saved"></div>
-    <div class="row"><button class="btn" id="bExport" type="button" data-i18n="copy_build_code">Copier le code du build</button><span class="label" data-i18n="or_paste_a_code_to_import">ou coller un code pour l'importer</span></div>
-    <textarea id="bCode" placeholder="Code de build" data-i18n-placeholder="build_code" aria-label="Code de build" data-i18n-aria-label="build_code"></textarea>
-    <div class="row"><button class="btn" id="bImport" type="button" data-i18n="import_code">Importer le code</button></div>
   </section>
 
   <footer>
@@ -94,6 +97,15 @@
   </div>
   <div class="pk-list" id="exList" style="padding:12px 16px"></div>
   <div class="pk-f" style="flex-wrap:wrap"><select id="exCode" aria-label="Bonus"></select><input id="exVal" type="number" step="any" placeholder="Valeur" data-i18n-placeholder="value" aria-label="Valeur" data-i18n-aria-label="value" style="width:90px;border:1px solid var(--line);border-radius:var(--r);padding:5px 8px;background:var(--bg)"><input type="checkbox" id="exPct" hidden><button class="btn primary" id="exAdd" type="button" data-i18n="add">Ajouter</button></div>
+</div></dialog>
+<dialog id="cpDlg"><div class="pk">
+  <div class="pk-h">
+    <div class="row" style="justify-content:space-between"><h3 id="cpTitle" style="font-size:18px"></h3><button class="btn" id="cpClose" type="button" data-i18n="close">Fermer</button></div>
+    <p class="hint" style="margin:0"><b id="cpSrc"></b></p>
+    <p class="hint" style="margin:0" data-i18n="cp_hint">Les essences actuelles des pièces cochées seront remplacées. Les essences qui ne respectent pas les règles de la pièce (type, niveau, slots core) sont ignorées.</p>
+  </div>
+  <div class="pk-list" id="cpList" style="padding:4px 16px"></div>
+  <div class="pk-f"><button class="btn" id="cpAll" type="button" data-i18n="cp_select_all">Tout cocher</button><button class="btn primary" id="cpGo" type="button" disabled></button></div>
 </div></dialog>
 <div class="toast" id="toast" hidden></div>
 
